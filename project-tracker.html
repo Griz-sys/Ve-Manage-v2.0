@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SOLOne - Project Task Tracker</title>
+<title>Ve Manage - Project Task Tracker</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root {
@@ -284,7 +284,7 @@
 
 <!-- SIDEBAR -->
 <nav id="sidebar">
-  <div class="logo">SOL<span>One</span></div>
+  <div class="logo">Ve<span>Manage</span></div>
   <nav id="sidebar-nav">
     <!-- rendered by JS based on role -->
   </nav>
@@ -335,7 +335,7 @@
           </div>
           <div class="form-group">
             <label>Project Code</label>
-            <input type="text" id="proj-code" placeholder="e.g. SOL-2024-TSMC" value="SOL-2025-TSMC18">
+            <input type="text" id="proj-code" placeholder="e.g. VM-2024-TSMC" value="VM-2025-TSMC18">
           </div>
           <div class="form-group">
             <label>Project Type</label>
@@ -683,7 +683,7 @@
         </div>
       </div>
       <div class="tabs">
-        <div class="tab active" onclick="switchTab(this,'psr-tabs','psr-internal')">Internal SOL PSR</div>
+        <div class="tab active" onclick="switchTab(this,'psr-tabs','psr-internal')">Internal Ve Manage PSR</div>
         <div class="tab" onclick="switchTab(this,'psr-tabs','psr-client')">Client-Facing PSR</div>
       </div>
       <div id="psr-tabs">
@@ -1111,7 +1111,7 @@ function subscribeRealtime() {
 
 async function seedInitialData() {
   const { data: proj, error: projErr } = await db.from('projects').insert({
-    name: 'TSMC Fab 18', client: 'TSMC Corporation', code: 'SOL-2025-TSMC18',
+    name: 'TSMC Fab 18', client: 'TSMC Corporation', code: 'VM-2025-TSMC18',
     start_date: '2025-07-01', ifa_date: '2025-09-15', bfa_date: '2025-10-30',
     ifc_date: '2025-12-15', manhours_budget: 2400, priority: 'High'
   }).select().single();
@@ -1313,7 +1313,7 @@ async function seedDemoData() {
 
   const demos = [
     {
-      proj: { name:'Intel Hillsboro', client:'Intel Corporation', code:'SOL-2024-INTL', start_date:'2024-03-01', ifa_date:'2025-03-10', bfa_date:'2025-05-01', ifc_date:'2025-07-15', manhours_budget:3200, priority:'High', status:'Near IFC' },
+      proj: { name:'Intel Hillsboro', client:'Intel Corporation', code:'VM-2024-INTL', start_date:'2024-03-01', ifa_date:'2025-03-10', bfa_date:'2025-05-01', ifc_date:'2025-07-15', manhours_budget:3200, priority:'High', status:'Near IFC' },
       members: [
         { name:'Vikram Desai',   role:'Senior Modeler',   grade:'G5', color:'#7c3aed', initials:'VD' },
         { name:'Anjali Menon',   role:'Editor',           grade:'G4', color:'#e63946', initials:'AM' },
@@ -1340,7 +1340,7 @@ async function seedDemoData() {
       ],
     },
     {
-      proj: { name:'Samsung Austin II', client:'Samsung Electronics', code:'SOL-2025-SAM', start_date:'2025-04-15', ifa_date:'2025-12-01', bfa_date:'2026-02-01', ifc_date:'2026-05-15', manhours_budget:4800, priority:'Medium', status:'Planning' },
+      proj: { name:'Samsung Austin II', client:'Samsung Electronics', code:'VM-2025-SAM', start_date:'2025-04-15', ifa_date:'2025-12-01', bfa_date:'2026-02-01', ifc_date:'2026-05-15', manhours_budget:4800, priority:'Medium', status:'Planning' },
       members: [
         { name:'Preethi Iyer',   role:'Senior Modeler',   grade:'G4', color:'#2d7dd2', initials:'PI' },
         { name:'Manish Kumar',   role:'Modeler',          grade:'G3', color:'#a855f7', initials:'MK' },
@@ -1366,7 +1366,7 @@ async function seedDemoData() {
       ],
     },
     {
-      proj: { name:'NVIDIA Santa Clara', client:'NVIDIA Corporation', code:'SOL-2025-NVD', start_date:'2025-05-01', ifa_date:'2025-11-15', bfa_date:'2026-01-30', ifc_date:'2026-04-01', manhours_budget:2800, priority:'High', status:'In Progress' },
+      proj: { name:'NVIDIA Santa Clara', client:'NVIDIA Corporation', code:'VM-2025-NVD', start_date:'2025-05-01', ifa_date:'2025-11-15', bfa_date:'2026-01-30', ifc_date:'2026-04-01', manhours_budget:2800, priority:'High', status:'In Progress' },
       members: [
         { name:'Arjun Mehta',    role:'Senior Modeler',   grade:'G5', color:'#0891b2', initials:'AM' },
         { name:'Divya Krishnan', role:'Modeler',          grade:'G3', color:'#7c3aed', initials:'DK' },
