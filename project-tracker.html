@@ -1118,6 +1118,7 @@ const MODELER_COL = {
   'to-model':       'To Model',
   'modeling':       'Modeling in Progress',
   'in-review':      'Model in Review',
+  'checker-active': 'Model in Review',
   'checker-wip':    'Model Checked – Changes in Progress',
   'changes-needed': 'Model Checked – Changes in Progress',
   'resubmitted':    'Model in Review',
@@ -1126,10 +1127,12 @@ const MODELER_COL = {
 
 // Internal status → column label on Checker's board
 const CHECKER_COL = {
-  'in-review':    'To Check',
-  'checker-wip':  'Model Checked – Changes in Progress',
-  'resubmitted':  'Changes in Review',
-  'done':         'Model Done',
+  'in-review':      'To Check',
+  'checker-active': 'Checking in Progress',
+  'checker-wip':    'Model Checked – Changes in Progress',
+  'changes-needed': 'Model Checked – Changes in Progress',
+  'resubmitted':    'Changes in Review',
+  'done':           'Model Done',
 };
 
 // Drag transitions allowed for Modeler (status → next status after drop)
@@ -1139,10 +1142,10 @@ const MODELER_TRANSITIONS = {
   'changes-needed': 'resubmitted',
 };
 
-// Drag transitions allowed for Checker (picking up from queue)
+// Drag transitions allowed for Checker (picking up into active review)
 const CHECKER_DRAG_TRANSITIONS = {
-  'in-review':   'checker-wip',
-  'resubmitted': 'checker-wip',
+  'in-review':   'checker-active',
+  'resubmitted': 'checker-active',
 };
 
 const SAMPLE_TASKS = {
@@ -1764,7 +1767,7 @@ function renderCheckerBoard() {
   const board = document.getElementById('emp-scrum-board');
   if (!board) return;
   board.innerHTML = '';
-  const cols = ['To Check','Model Checked – Changes in Progress','Changes in Review','Model Done'];
+  const cols = ['To Check','Checking in Progress','Model Checked – Changes in Progress','Changes in Review','Model Done'];
 
   cols.forEach(col => {
     const colTasks = MODELING_TASKS.filter(t => CHECKER_COL[t.status] === col);
@@ -1776,7 +1779,7 @@ function renderCheckerBoard() {
     colTasks.forEach(t => {
       const canDrag         = !!CHECKER_DRAG_TRANSITIONS[t.status];
       const isDone          = t.status === 'done';
-      const showActions     = t.status === 'checker-wip' || t.status === 'resubmitted';
+      const showActions     = t.status === 'checker-active' || t.status === 'resubmitted';
 
       const card = document.createElement('div');
       card.className = 'task-card' + (isDone ? ' task-done-green' : '');
@@ -1817,12 +1820,12 @@ function renderCheckerBoard() {
     if (colTasks.length === 0) {
       const hint = document.createElement('div');
       hint.className = 'drop-hint';
-      hint.textContent = col === 'Model Checked – Changes in Progress' ? 'Drag task here to start review' : '—';
+      hint.textContent = col === 'Checking in Progress' ? 'Drag task here to start review' : '—';
       colEl.appendChild(hint);
     }
 
-    // Checker only drags into "Model Checked – Changes in Progress"
-    if (col === 'Model Checked – Changes in Progress') {
+    // Checker drags into "Checking in Progress" (from To Check or Changes in Review)
+    if (col === 'Checking in Progress') {
       colEl.addEventListener('dragover', e => { e.preventDefault(); colEl.classList.add('col-drag-over'); });
       colEl.addEventListener('dragleave', e => { if (!colEl.contains(e.relatedTarget)) colEl.classList.remove('col-drag-over'); });
       colEl.addEventListener('drop', e => {
