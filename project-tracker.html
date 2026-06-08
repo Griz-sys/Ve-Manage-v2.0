@@ -1,0 +1,2044 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SOLOne - Project Task Tracker</title>
+<style>
+  :root {
+    --primary: #1a3c5e;
+    --accent: #2d7dd2;
+    --accent2: #f4a261;
+    --success: #2ec4b6;
+    --danger: #e63946;
+    --warn: #f4a261;
+    --bg: #f0f4f8;
+    --card: #ffffff;
+    --border: #d1dce8;
+    --text: #1a2535;
+    --muted: #6b7c93;
+    --sidebar: #0f2540;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); display: flex; min-height: 100vh; font-size: 13px; }
+
+  /* SIDEBAR */
+  #sidebar {
+    width: 220px; background: var(--sidebar); color: #c8d8ea; display: flex; flex-direction: column;
+    position: fixed; top: 0; left: 0; height: 100vh; z-index: 100; transition: width 0.2s;
+  }
+  #sidebar .logo { padding: 18px 16px; font-size: 18px; font-weight: 700; color: #fff; border-bottom: 1px solid #1e3a5c; letter-spacing: 1px; }
+  #sidebar .logo span { color: var(--accent2); }
+  #sidebar nav { flex: 1; overflow-y: auto; padding: 8px 0; }
+  #sidebar nav .section-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #4a6580; padding: 12px 16px 4px; }
+  #sidebar nav a {
+    display: flex; align-items: center; gap: 10px; padding: 9px 16px; cursor: pointer;
+    border-left: 3px solid transparent; color: #a0b8cc; text-decoration: none; transition: all 0.15s;
+  }
+  #sidebar nav a:hover { background: #162d47; color: #fff; }
+  #sidebar nav a.active { background: #1a3c5e; color: #fff; border-left-color: var(--accent2); }
+  #sidebar nav a .icon { width: 18px; text-align: center; font-size: 14px; }
+  #sidebar nav a.locked { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
+  #sidebar .role-header { padding: 10px 16px 6px; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #4a6580; border-top: 1px solid #1e3a5c; margin-top: 8px; }
+
+  /* MAIN */
+  #main { margin-left: 220px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+  #topbar {
+    background: #fff; border-bottom: 1px solid var(--border); padding: 0 24px;
+    height: 52px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50;
+  }
+  #topbar .breadcrumb { font-size: 13px; color: var(--muted); }
+  #topbar .breadcrumb strong { color: var(--text); }
+  #topbar .user-chip { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+  #topbar .avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; }
+  #topbar .role-badge { background: #e8f0fe; color: var(--accent); font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 99px; }
+
+  #content { padding: 24px; flex: 1; }
+
+  /* SCREENS */
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  /* CARDS */
+  .card { background: var(--card); border-radius: 8px; border: 1px solid var(--border); padding: 20px; margin-bottom: 16px; }
+  .card-title { font-size: 14px; font-weight: 700; color: var(--primary); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+  .card-title .badge { font-size: 10px; background: #e8f0fe; color: var(--accent); padding: 2px 8px; border-radius: 99px; font-weight: 600; }
+
+  /* FORMS */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .form-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+  .form-group { display: flex; flex-direction: column; gap: 5px; }
+  .form-group.full { grid-column: 1 / -1; }
+  label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  input, select, textarea {
+    padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px;
+    font-size: 13px; color: var(--text); background: #f8fafc; transition: border 0.15s;
+  }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); background: #fff; }
+  textarea { resize: vertical; min-height: 70px; }
+
+  /* BUTTONS */
+  .btn { padding: 8px 16px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; border: none; transition: all 0.15s; display: inline-flex; align-items: center; gap: 6px; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #1a5fa8; }
+  .btn-secondary { background: #fff; color: var(--accent); border: 1px solid var(--accent); }
+  .btn-secondary:hover { background: #e8f0fe; }
+  .btn-success { background: var(--success); color: #fff; }
+  .btn-danger { background: var(--danger); color: #fff; }
+  .btn-warn { background: var(--warn); color: #fff; }
+  .btn-sm { padding: 5px 10px; font-size: 11px; }
+  .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+  .btn-ghost:hover { background: var(--bg); color: var(--text); }
+
+  /* TABS */
+  .tabs { display: flex; gap: 4px; border-bottom: 2px solid var(--border); margin-bottom: 20px; }
+  .tab { padding: 8px 16px; cursor: pointer; font-size: 12px; font-weight: 600; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.15s; }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab:hover { color: var(--text); }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* TABLE */
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { background: #f0f4f8; color: var(--muted); font-weight: 600; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px; padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+  td { padding: 9px 12px; border-bottom: 1px solid #f0f4f8; vertical-align: middle; }
+  tr:hover td { background: #f8fafc; }
+
+  /* TAGS / CHIPS */
+  .chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 99px; font-size: 10px; font-weight: 600; }
+  .chip-blue { background: #dbeafe; color: #1d4ed8; }
+  .chip-green { background: #d1fae5; color: #065f46; }
+  .chip-red { background: #fee2e2; color: #991b1b; }
+  .chip-yellow { background: #fef3c7; color: #92400e; }
+  .chip-purple { background: #ede9fe; color: #5b21b6; }
+  .chip-gray { background: #f3f4f6; color: #374151; }
+  .chip-orange { background: #ffedd5; color: #9a3412; }
+
+  /* PHASE TAGS */
+  .phase-tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+
+  /* DRAG/DROP */
+  .droppable { border: 2px dashed var(--border); border-radius: 8px; padding: 8px; min-height: 60px; transition: border-color 0.15s; }
+  .droppable.drag-over { border-color: var(--accent); background: #e8f4ff; }
+  .draggable { cursor: grab; }
+  .draggable:active { cursor: grabbing; opacity: 0.7; }
+
+  /* MEMBER CARD */
+  .member-card {
+    display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+    background: var(--card); border: 1px solid var(--border); border-radius: 6px;
+    margin-bottom: 6px; cursor: grab; transition: box-shadow 0.15s; position: relative;
+  }
+  .member-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
+  .member-card .av { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 11px; color: #fff; flex-shrink: 0; }
+  .member-card .info { flex: 1; min-width: 0; }
+  .member-card .name { font-weight: 600; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .member-card .sub { font-size: 10px; color: var(--muted); }
+  .tooltip {
+    display: none; position: absolute; left: 105%; top: 0; z-index: 200;
+    background: #1a2535; color: #fff; border-radius: 8px; padding: 10px 12px;
+    font-size: 11px; white-space: nowrap; min-width: 160px; box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  }
+  .member-card:hover .tooltip { display: block; }
+
+  /* SCRUM BOARD */
+  .scrum-board { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 8px; }
+  .scrum-col { min-width: 200px; flex: 1; background: #f0f4f8; border-radius: 8px; padding: 12px; transition: background 0.15s; }
+  .scrum-col.col-drag-over { background: #dbeafe; outline: 2px dashed var(--accent); }
+  .scrum-col-header { font-size: 11px; font-weight: 700; color: var(--primary); margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; text-transform: uppercase; letter-spacing: 0.5px; }
+  .scrum-col-header .count { background: var(--accent); color: #fff; border-radius: 99px; font-size: 10px; padding: 1px 6px; }
+  .scrum-col .drop-hint { font-size: 11px; color: var(--muted); text-align: center; padding: 14px 8px; border: 1.5px dashed var(--border); border-radius: 6px; pointer-events: none; }
+  .scrum-col.col-drag-over .drop-hint { border-color: var(--accent); color: var(--accent); background: #eff6ff; }
+  .task-card {
+    background: #fff; border-radius: 6px; padding: 10px; margin-bottom: 8px;
+    border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    cursor: grab; transition: box-shadow 0.15s, opacity 0.15s, transform 0.12s;
+    user-select: none;
+  }
+  .task-card:hover { box-shadow: 0 3px 10px rgba(0,0,0,0.1); transform: translateY(-1px); }
+  .task-card.dragging { opacity: 0.4; cursor: grabbing; transform: scale(0.97); }
+  .task-card .tc-title { font-weight: 600; font-size: 12px; margin-bottom: 5px; }
+  .task-card .tc-meta { font-size: 10px; color: var(--muted); display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .task-card .tc-timer { font-family: monospace; font-size: 11px; color: var(--success); font-weight: 700; }
+  .task-card .drag-handle { font-size: 13px; color: #c1cdd9; margin-right: 4px; cursor: grab; }
+
+  /* PROGRESS BAR */
+  .progress-bar { height: 6px; background: #e2e8f0; border-radius: 99px; overflow: hidden; }
+  .progress-bar .fill { height: 100%; border-radius: 99px; background: var(--accent); transition: width 0.3s; }
+  .progress-bar .fill.warn { background: var(--warn); }
+  .progress-bar .fill.danger { background: var(--danger); }
+  .progress-bar .fill.success { background: var(--success); }
+
+  /* MODAL */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 1000; align-items: center; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: #fff; border-radius: 12px; padding: 24px; width: 540px; max-width: 95vw; max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.25); }
+  .modal h2 { font-size: 16px; font-weight: 700; margin-bottom: 16px; color: var(--primary); }
+  .modal-footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+
+  /* KANBAN (TL Board) */
+  .kanban { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .kanban-col { background: #f0f4f8; border-radius: 8px; padding: 14px; }
+  .kanban-col h4 { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; color: var(--primary); }
+
+  /* PACKAGE CARD */
+  .pkg-card { background: #fff; border-radius: 8px; border: 1px solid var(--border); padding: 14px; margin-bottom: 10px; }
+  .pkg-card h5 { font-size: 13px; font-weight: 700; margin-bottom: 8px; }
+  .pkg-stages { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .pkg-stage { padding: 4px 10px; border-radius: 99px; font-size: 10px; font-weight: 700; border: 1.5px solid; }
+  .pkg-stage.ifa { border-color: #2d7dd2; color: #2d7dd2; background: #dbeafe; }
+  .pkg-stage.bfa { border-color: #f4a261; color: #9a3412; background: #ffedd5; }
+  .pkg-stage.rnr { border-color: #a855f7; color: #5b21b6; background: #ede9fe; }
+  .pkg-stage.ifc { border-color: #2ec4b6; color: #065f46; background: #d1fae5; }
+  .pkg-stage.done { background: #d1fae5; border-color: #2ec4b6; color: #065f46; }
+  .pkg-stage.pending { background: #f3f4f6; border-color: #d1d5db; color: #6b7280; }
+
+  /* STATS */
+  .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
+  .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+  .stat-card .val { font-size: 28px; font-weight: 800; color: var(--primary); }
+  .stat-card .lbl { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .stat-card .trend { font-size: 11px; margin-top: 6px; }
+
+  /* RFI */
+  .rfi-card { background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 14px; margin-bottom: 10px; }
+  .rfi-card .rfi-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .rfi-card h5 { font-size: 13px; font-weight: 700; }
+
+  /* WEIGHTAGE */
+  .weightage-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f0f4f8; }
+  .weightage-row .task-name { flex: 1; font-size: 12px; font-weight: 600; }
+  .weightage-row input[type=number] { width: 70px; }
+  .weightage-row .assignee { min-width: 120px; font-size: 11px; color: var(--muted); }
+
+  /* APPROVAL BANNER */
+  .approval-banner { background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 12px 16px; margin-bottom: 14px; display: flex; align-items: center; gap: 12px; }
+  .approval-banner .icon { font-size: 18px; }
+
+  /* TEAM MEMBER LIST */
+  .team-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+
+  /* WORKLOAD BAR */
+  .workload-col { background: #f0f4f8; border-radius: 8px; padding: 14px; }
+  .workload-col h4 { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+  .workload-member { background: #fff; border-radius: 6px; padding: 10px; margin-bottom: 8px; border: 1px solid var(--border); }
+  .workload-member .wm-name { font-weight: 600; font-size: 12px; margin-bottom: 6px; }
+  .workload-member .wm-tasks { font-size: 10px; color: var(--muted); margin-bottom: 4px; }
+
+  /* PAGE HEADER */
+  .page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
+  .page-header h1 { font-size: 20px; font-weight: 800; color: var(--primary); }
+  .page-header p { font-size: 12px; color: var(--muted); margin-top: 3px; }
+
+  /* PHASE LIST */
+  .phase-item { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: #f8fafc; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 8px; }
+  .phase-num { width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+  .phase-name { flex: 1; font-weight: 600; font-size: 13px; }
+
+  /* TIMELINE */
+  .timeline-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #f0f4f8; }
+  .timeline-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+
+  /* FILTER BAR */
+  .filter-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; align-items: center; }
+  .filter-bar select, .filter-bar input { padding: 6px 10px; font-size: 12px; }
+
+  /* NOTIFICATION DOT */
+  .notif-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--danger); display: inline-block; }
+
+  /* CLOCK */
+  .clock { font-family: monospace; font-size: 22px; font-weight: 800; color: var(--success); letter-spacing: 2px; }
+
+  /* PSR */
+  .psr-section { margin-bottom: 16px; }
+  .psr-section h4 { font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+
+  /* HIGHLIGHT */
+  .highlight { background: #fffbeb; border-left: 3px solid var(--warn); padding: 8px 12px; border-radius: 0 6px 6px 0; margin-bottom: 10px; font-size: 12px; }
+
+  /* DEPENDENCY TASK STATES */
+  .task-card.task-grayed { opacity: 0.55; background: #f3f4f6; border-color: #d1d5db; cursor: default; }
+  .task-card.task-grayed .tc-title { color: #6b7280; }
+  .task-card.task-done-green { border-color: #6ee7b7; background: #f0fdf4; }
+  .task-card.task-done-green .tc-title { color: #065f46; }
+  .dep-actions { display:flex; gap:6px; margin-top:8px; }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #c1cdd9; border-radius: 99px; }
+
+  /* RESPONSIVE */
+  @media (max-width: 900px) {
+    #sidebar { width: 56px; }
+    #sidebar .logo span:last-child, #sidebar nav a span:not(.icon), #sidebar nav .section-label { display: none; }
+    #main { margin-left: 56px; }
+    .stats-grid { grid-template-columns: repeat(2,1fr); }
+    .kanban { grid-template-columns: 1fr; }
+    .form-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<nav id="sidebar">
+  <div class="logo">SOL<span>One</span></div>
+  <nav id="sidebar-nav">
+    <!-- rendered by JS based on role -->
+  </nav>
+</nav>
+
+<!-- MAIN -->
+<div id="main">
+  <div id="topbar">
+    <div class="breadcrumb" id="breadcrumb"><strong>New Project</strong></div>
+    <div style="display:flex;gap:12px;align-items:center;">
+      <div id="role-switcher" style="display:flex;gap:4px;background:#f0f4f8;padding:3px;border-radius:8px;">
+        <button class="btn btn-sm" id="rbtn-employee" onclick="switchRole('employee')" style="border-radius:6px;">👤 Employee</button>
+        <button class="btn btn-sm" id="rbtn-tl" onclick="switchRole('tl')" style="border-radius:6px;">🗂 TL</button>
+        <button class="btn btn-sm" id="rbtn-spm" onclick="switchRole('spm')" style="border-radius:6px;">🏢 SPM</button>
+      </div>
+      <div class="user-chip">
+        <div class="avatar" id="user-avatar">TL</div>
+        <div>
+          <div style="font-weight:600;font-size:12px;" id="user-name">Rajan Mehta</div>
+          <div class="role-badge" id="user-role">Team Lead</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="content">
+
+    <!-- ==================== SCREEN 1: PROJECT CREATE ==================== -->
+    <div id="screen-project-create" class="screen active">
+      <div class="page-header">
+        <div>
+          <h1>Create New Project</h1>
+          <p>Fill in project details, schedule, phases, and team composition</p>
+        </div>
+        <button class="btn btn-primary" onclick="saveProject()">💾 Save & Continue →</button>
+      </div>
+
+      <!-- Project Details -->
+      <div class="card">
+        <div class="card-title">📋 Project Details</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Project Name *</label>
+            <input type="text" id="proj-name" placeholder="e.g. TSMC Fab 18" value="TSMC Fab 18">
+          </div>
+          <div class="form-group">
+            <label>Client</label>
+            <input type="text" id="proj-client" placeholder="Client name" value="TSMC Corporation">
+          </div>
+          <div class="form-group">
+            <label>Project Code</label>
+            <input type="text" id="proj-code" placeholder="e.g. SOL-2024-TSMC" value="SOL-2025-TSMC18">
+          </div>
+          <div class="form-group">
+            <label>Project Type</label>
+            <select>
+              <option>Industrial Steel</option>
+              <option>Commercial Steel</option>
+              <option>Residential</option>
+              <option>Infrastructure</option>
+            </select>
+          </div>
+          <div class="form-group full">
+            <label>Project Description</label>
+            <textarea id="proj-desc" placeholder="Brief description of the project scope...">Multi-story industrial facility with complex steel framing, anchor bolt systems, and secondary structural steel components.</textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- Schedule -->
+      <div class="card">
+        <div class="card-title">📅 Complete Project Schedule</div>
+        <div class="form-grid-3">
+          <div class="form-group">
+            <label>Project Start Date *</label>
+            <input type="date" id="proj-start" value="2025-07-01">
+          </div>
+          <div class="form-group">
+            <label>IFA Target Date *</label>
+            <input type="date" id="proj-ifa" value="2025-09-15">
+          </div>
+          <div class="form-group">
+            <label>BFA Target Date</label>
+            <input type="date" id="proj-bfa" value="2025-10-30">
+          </div>
+          <div class="form-group">
+            <label>IFC Target Date</label>
+            <input type="date" id="proj-ifc" value="2025-12-15">
+          </div>
+          <div class="form-group">
+            <label>Total Manhours Budget</label>
+            <input type="number" id="proj-hours" value="2400" placeholder="e.g. 2400">
+          </div>
+          <div class="form-group">
+            <label>Project Priority</label>
+            <select>
+              <option>High</option>
+              <option selected>Medium</option>
+              <option>Low</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Phases -->
+      <div class="card">
+        <div class="card-title">🏗️ Project Phases <span class="badge" id="phase-count-badge">4 Phases</span></div>
+        <div id="phase-list">
+          <div class="phase-item">
+            <div class="phase-num">I</div>
+            <input class="phase-name" type="text" value="Area A" style="border:none;background:transparent;font-weight:600;font-size:13px;flex:1;" placeholder="Phase name">
+            <input type="text" value="Foundation & Anchor Systems" style="border:none;background:transparent;color:var(--muted);font-size:12px;flex:2;" placeholder="Description">
+            <select style="font-size:11px;padding:4px 6px;">
+              <option>Active</option><option>Upcoming</option><option>On Hold</option>
+            </select>
+            <button class="btn btn-sm btn-danger" onclick="removePhase(this)">✕</button>
+          </div>
+          <div class="phase-item">
+            <div class="phase-num">II</div>
+            <input class="phase-name" type="text" value="Area C" style="border:none;background:transparent;font-weight:600;font-size:13px;flex:1;" placeholder="Phase name">
+            <input type="text" value="Main Structural Frame" style="border:none;background:transparent;color:var(--muted);font-size:12px;flex:2;" placeholder="Description">
+            <select style="font-size:11px;padding:4px 6px;">
+              <option>Active</option><option selected>Upcoming</option><option>On Hold</option>
+            </select>
+            <button class="btn btn-sm btn-danger" onclick="removePhase(this)">✕</button>
+          </div>
+          <div class="phase-item">
+            <div class="phase-num">III</div>
+            <input class="phase-name" type="text" value="Elevator Framing" style="border:none;background:transparent;font-weight:600;font-size:13px;flex:1;" placeholder="Phase name">
+            <input type="text" value="Elevator shaft and support structure" style="border:none;background:transparent;color:var(--muted);font-size:12px;flex:2;" placeholder="Description">
+            <select style="font-size:11px;padding:4px 6px;">
+              <option>Active</option><option selected>Upcoming</option><option>On Hold</option>
+            </select>
+            <button class="btn btn-sm btn-danger" onclick="removePhase(this)">✕</button>
+          </div>
+          <div class="phase-item">
+            <div class="phase-num">IV</div>
+            <input class="phase-name" type="text" value="Outer Red Box" style="border:none;background:transparent;font-weight:600;font-size:13px;flex:1;" placeholder="Phase name">
+            <input type="text" value="External cladding and perimeter steel" style="border:none;background:transparent;color:var(--muted);font-size:12px;flex:2;" placeholder="Description">
+            <select style="font-size:11px;padding:4px 6px;">
+              <option>Active</option><option selected>Upcoming</option><option>On Hold</option>
+            </select>
+            <button class="btn btn-sm btn-danger" onclick="removePhase(this)">✕</button>
+          </div>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="addPhase()" style="margin-top:8px;">+ Add Phase</button>
+      </div>
+
+      <!-- Team Creation -->
+      <div class="card">
+        <div class="card-title">👥 Team Composition</div>
+        <div class="tabs">
+          <div class="tab active" onclick="switchTab(this,'team-tabs','core-team')">Core Team</div>
+          <div class="tab" onclick="switchTab(this,'team-tabs','ext-team')">External Members <span class="chip chip-yellow" style="margin-left:4px;font-size:9px;">SPM Approval Required</span></div>
+        </div>
+        <div id="team-tabs">
+          <div class="tab-content active" id="core-team">
+            <div class="team-list" id="core-team-list">
+              <!-- populated by JS -->
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="openAddMemberModal('core')" style="margin-top:10px;">+ Add Team Member</button>
+          </div>
+          <div class="tab-content" id="ext-team">
+            <div class="approval-banner">
+              <div class="icon">⚠️</div>
+              <div>
+                <strong>SPM Approval Required</strong><br>
+                <span style="font-size:11px;color:#92400e;">Adding members from other teams requires Senior Project Manager approval. Requests will be sent automatically.</span>
+              </div>
+            </div>
+            <div id="ext-team-list"></div>
+            <button class="btn btn-warn btn-sm" onclick="openAddMemberModal('ext')" style="margin-top:10px;">+ Request External Member</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== SCREEN 2: TASK ASSIGN ==================== -->
+    <div id="screen-task-assign" class="screen">
+      <div class="page-header">
+        <div>
+          <h1>Tasks & Phase Assignment</h1>
+          <p>Project: <strong>TSMC Fab 18</strong> — Auto-generated tasks reviewed and assigned</p>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-secondary" onclick="regenerateTasks()">🔄 Regenerate Tasks</button>
+          <button class="btn btn-primary" onclick="showScreen('weightage')">Next: Weightage →</button>
+        </div>
+      </div>
+
+      <!-- Filter Bar -->
+      <div class="filter-bar">
+        <strong style="font-size:12px;color:var(--muted);">Filter:</strong>
+        <select id="filter-role" onchange="filterTasks()">
+          <option value="">All Roles</option>
+          <option value="Modeling">Modeling</option>
+          <option value="Editing">Editing</option>
+          <option value="Checking">Checking</option>
+        </select>
+        <select id="filter-phase" onchange="filterTasks()">
+          <option value="">All Phases</option>
+          <option value="Phase I">Phase I – Area A</option>
+          <option value="Phase II">Phase II – Area C</option>
+          <option value="Phase III">Phase III – Elevator</option>
+          <option value="Phase IV">Phase IV – Outer Red Box</option>
+          <option value="Stairs">Stairs</option>
+          <option value="Arch Misc">Arch Misc</option>
+        </select>
+        <select id="filter-assigned" onchange="filterTasks()">
+          <option value="">All Tasks</option>
+          <option value="assigned">Assigned</option>
+          <option value="unassigned">Unassigned</option>
+        </select>
+        <button class="btn btn-ghost btn-sm" onclick="clearFilters()">Clear</button>
+      </div>
+
+      <div style="display:grid;grid-template-columns:260px 1fr;gap:14px;">
+        <!-- Team Inventory Panel -->
+        <div>
+          <div class="card" style="position:sticky;top:68px;max-height:calc(100vh - 120px);overflow-y:auto;">
+            <div class="card-title">👥 Team Inventory</div>
+            <div id="team-inventory">
+              <!-- populated by JS -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Tasks Panel -->
+        <div id="tasks-panel">
+          <!-- populated by JS -->
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== SCREEN 3: WEIGHTAGE ==================== -->
+    <div id="screen-weightage" class="screen">
+      <div class="page-header">
+        <div>
+          <h1>Weightage & Time Assignment</h1>
+          <p>Assign time estimates to tasks. Total must equal project budget: <strong>2400 hrs</strong></p>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <div style="font-size:13px;">Allocated: <strong id="total-allocated" style="color:var(--success);">0</strong> / 2400 hrs</div>
+          <button class="btn btn-primary">✅ Finalize & Generate Packages</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">⚖️ Task Weightage — Phase I: Area A</div>
+        <div id="weightage-list-1"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">⚖️ Task Weightage — Phase II: Area C</div>
+        <div id="weightage-list-2"></div>
+      </div>
+      <div class="card" style="background:#f0f9ff;border-color:#bfdbfe;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;">
+          <strong>Total Allocated Hours</strong>
+          <div style="display:flex;gap:16px;align-items:center;">
+            <div class="progress-bar" style="width:300px;">
+              <div class="fill success" id="weightage-fill" style="width:65%;"></div>
+            </div>
+            <span id="weightage-pct" style="font-weight:700;color:var(--success);">65%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== SCREEN: PROJECT LIST ==================== -->
+    <div id="screen-project-list" class="screen">
+      <div class="page-header">
+        <h1>All Projects</h1>
+        <button class="btn btn-primary" onclick="showScreen('project-create')">+ New Project</button>
+      </div>
+      <div class="card">
+        <table>
+          <thead><tr>
+            <th>Project</th><th>Client</th><th>Phases</th><th>IFA Date</th><th>Progress</th><th>Status</th><th>Actions</th>
+          </tr></thead>
+          <tbody>
+            <tr>
+              <td><strong>TSMC Fab 18</strong><br><span style="font-size:10px;color:var(--muted);">SOL-2025-TSMC18</span></td>
+              <td>TSMC Corporation</td>
+              <td>4 phases</td>
+              <td>Sep 15, 2025</td>
+              <td><div class="progress-bar"><div class="fill" style="width:38%;"></div></div><span style="font-size:10px;color:var(--muted);">38%</span></td>
+              <td><span class="chip chip-blue">In Progress</span></td>
+              <td><button class="btn btn-sm btn-secondary" onclick="showScreen('tl-board')">View</button></td>
+            </tr>
+            <tr>
+              <td><strong>Intel Hillsboro</strong><br><span style="font-size:10px;color:var(--muted);">SOL-2024-INTL</span></td>
+              <td>Intel Corporation</td>
+              <td>3 phases</td>
+              <td>Mar 10, 2025</td>
+              <td><div class="progress-bar"><div class="fill success" style="width:92%;"></div></div><span style="font-size:10px;color:var(--muted);">92%</span></td>
+              <td><span class="chip chip-green">Near IFC</span></td>
+              <td><button class="btn btn-sm btn-secondary">View</button></td>
+            </tr>
+            <tr>
+              <td><strong>Samsung Austin II</strong><br><span style="font-size:10px;color:var(--muted);">SOL-2025-SAM</span></td>
+              <td>Samsung Electronics</td>
+              <td>5 phases</td>
+              <td>Dec 01, 2025</td>
+              <td><div class="progress-bar"><div class="fill warn" style="width:12%;"></div></div><span style="font-size:10px;color:var(--muted);">12%</span></td>
+              <td><span class="chip chip-yellow">Planning</span></td>
+              <td><button class="btn btn-sm btn-secondary">View</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ==================== SCREEN: EMPLOYEE BOARD ==================== -->
+    <div id="screen-employee-board" class="screen">
+      <div class="page-header">
+        <div>
+          <h1>My Task Board</h1>
+          <p>Project: TSMC Fab 18 — Role: <strong id="emp-role-display">Modeler</strong></p>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <div>Active Timer: <span class="clock" id="live-clock">00:00:00</span></div>
+          <button class="btn btn-secondary btn-sm" onclick="openCreateTaskModal()">+ Create Task</button>
+        </div>
+      </div>
+
+      <div class="highlight">Only <strong>one task</strong> can be "In Progress" at a time. Time is automatically clocked while a task is active.</div>
+
+      <!-- Role selector for demo -->
+      <div class="filter-bar" style="margin-bottom:16px;">
+        <label style="font-size:11px;text-transform:none;">View as:</label>
+        <button class="btn btn-sm btn-primary" onclick="setEmpRole('Modeler')">Modeler Board</button>
+        <button class="btn btn-sm btn-ghost" onclick="setEmpRole('Editor')">Editor Board</button>
+        <button class="btn btn-sm btn-ghost" onclick="setEmpRole('Model Checker')">Model Checker Board</button>
+        <button class="btn btn-sm btn-ghost" onclick="setEmpRole('Erection Checker')">Erection Checker Board</button>
+      </div>
+
+      <div class="scrum-board" id="emp-scrum-board">
+        <!-- populated by JS -->
+      </div>
+    </div>
+
+    <!-- ==================== SCREEN: TL BOARD ==================== -->
+    <div id="screen-tl-board" class="screen">
+      <div class="page-header">
+        <h1>TL Dashboard</h1>
+        <p>Project: TSMC Fab 18</p>
+      </div>
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab(this,'tl-tabs','tl-status')">📊 Project Status</div>
+        <div class="tab" onclick="switchTab(this,'tl-tabs','tl-workload')">👥 Team Workload</div>
+        <div class="tab" onclick="switchTab(this,'tl-tabs','tl-packages')">📦 Project Packages</div>
+      </div>
+      <div id="tl-tabs">
+        <!-- STATUS -->
+        <div class="tab-content active" id="tl-status">
+          <div class="kanban">
+            <div class="kanban-col">
+              <h4 style="color:#2d7dd2;">🔧 Modeling</h4>
+              <div id="tl-modeling-tasks"></div>
+            </div>
+            <div class="kanban-col">
+              <h4 style="color:#f4a261;">✏️ Editing</h4>
+              <div id="tl-editing-tasks"></div>
+            </div>
+            <div class="kanban-col">
+              <h4 style="color:#2ec4b6;">✅ Checking</h4>
+              <div id="tl-checking-tasks"></div>
+            </div>
+          </div>
+        </div>
+        <!-- WORKLOAD -->
+        <div class="tab-content" id="tl-workload">
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;" id="tl-workload-cols"></div>
+        </div>
+        <!-- PACKAGES -->
+        <div class="tab-content" id="tl-packages">
+          <div id="pkg-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== SCREEN: RFI ==================== -->
+    <div id="screen-rfi" class="screen">
+      <div class="page-header">
+        <h1>RFI Management</h1>
+        <p>Upload, assign, and track RFIs across packages</p>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 300px;gap:14px;">
+        <div>
+          <div class="card">
+            <div class="card-title" style="display:flex;justify-content:space-between;">
+              <span>📋 Active RFIs</span>
+              <button class="btn btn-sm btn-primary" onclick="openRFIModal()">+ Upload RFI</button>
+            </div>
+            <div id="rfi-list"></div>
+          </div>
+        </div>
+        <div>
+          <div class="card">
+            <div class="card-title">📦 Packages on Hold</div>
+            <div id="rfi-hold-list"></div>
+          </div>
+          <div class="card" style="margin-top:14px;">
+            <div class="card-title">📊 RFI Summary</div>
+            <div style="display:flex;flex-direction:column;gap:8px;font-size:12px;">
+              <div style="display:flex;justify-content:space-between;"><span>Open RFIs</span><strong style="color:var(--danger);">3</strong></div>
+              <div style="display:flex;justify-content:space-between;"><span>Packages Affected</span><strong style="color:var(--warn);">2</strong></div>
+              <div style="display:flex;justify-content:space-between;"><span>Avg Resolution Time</span><strong>8.5 days</strong></div>
+              <div style="display:flex;justify-content:space-between;"><span>Closed This Month</span><strong style="color:var(--success);">4</strong></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== SCREEN: PSR ==================== -->
+    <div id="screen-psr" class="screen">
+      <div class="page-header">
+        <h1>Project Status Report (PSR)</h1>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-secondary">🖨️ Print</button>
+          <button class="btn btn-primary">📤 Export PDF</button>
+        </div>
+      </div>
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab(this,'psr-tabs','psr-internal')">Internal SOL PSR</div>
+        <div class="tab" onclick="switchTab(this,'psr-tabs','psr-client')">Client-Facing PSR</div>
+      </div>
+      <div id="psr-tabs">
+        <div class="tab-content active" id="psr-internal">
+          <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+              <div><h2 style="font-size:16px;font-weight:800;color:var(--primary);">TSMC Fab 18 — Internal PSR</h2><div style="font-size:11px;color:var(--muted);">Week 24 | June 5, 2025</div></div>
+              <span class="chip chip-blue">Draft</span>
+            </div>
+            <div class="psr-section">
+              <h4>Overall Progress</h4>
+              <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;">
+                <div class="stat-card"><div class="val">38%</div><div class="lbl">Overall Complete</div></div>
+                <div class="stat-card"><div class="val">847</div><div class="lbl">Hours Logged</div></div>
+                <div class="stat-card"><div class="val">3</div><div class="lbl">Open RFIs</div></div>
+                <div class="stat-card"><div class="val">Sep 15</div><div class="lbl">IFA Target</div></div>
+              </div>
+            </div>
+            <div class="psr-section">
+              <h4>Tasks Completed This Period</h4>
+              <table>
+                <thead><tr><th>Task</th><th>Phase</th><th>Assignee</th><th>Role</th><th>Hours</th><th>Completed</th></tr></thead>
+                <tbody>
+                  <tr><td>Wireframe</td><td>Phase I</td><td>Arjun S.</td><td><span class="chip chip-blue">Modeling</span></td><td>42</td><td>May 28</td></tr>
+                  <tr><td>Anchor Bolt</td><td>Phase I</td><td>Priya K.</td><td><span class="chip chip-blue">Modeling</span></td><td>36</td><td>Jun 02</td></tr>
+                  <tr><td>Plan Sheets</td><td>Phase I</td><td>Meera V.</td><td><span class="chip chip-orange">Editing</span></td><td>28</td><td>Jun 04</td></tr>
+                  <tr><td>Wireframe Check</td><td>Phase I</td><td>Suresh P.</td><td><span class="chip chip-green">Checking</span></td><td>18</td><td>Jun 04</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="psr-section">
+              <h4>RFI Impact Summary</h4>
+              <table>
+                <thead><tr><th>RFI #</th><th>Description</th><th>Phase</th><th>Package Held</th><th>Status</th></tr></thead>
+                <tbody>
+                  <tr><td>RFI-001</td><td>Anchor bolt spacing clarification</td><td>Phase I</td><td>ABM Package</td><td><span class="chip chip-red">Open</span></td></tr>
+                  <tr><td>RFI-002</td><td>Column base plate dimensions</td><td>Phase II</td><td>Phase II Main Steel</td><td><span class="chip chip-yellow">Pending</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div class="tab-content" id="psr-client">
+          <div class="card">
+            <div class="card-title">Client PSR — Submittals & Milestones</div>
+            <div class="psr-section">
+              <h4>Submittals Log</h4>
+              <table>
+                <thead><tr><th>Submittal #</th><th>Description</th><th>Steel Vault File</th><th>Submitted</th><th>Status</th></tr></thead>
+                <tbody>
+                  <tr><td>SUB-001</td><td>ABM Phase I Wireframe</td><td>TSMC18_ABM_PH1_WF_r0</td><td>May 20, 2025</td><td><span class="chip chip-green">Approved</span></td></tr>
+                  <tr><td>SUB-002</td><td>Phase I IFA Package</td><td>TSMC18_PH1_IFA_r0</td><td>Jun 01, 2025</td><td><span class="chip chip-yellow">Under Review</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="psr-section">
+              <h4>BFA / Revision Log</h4>
+              <table>
+                <thead><tr><th>Event</th><th>From Client</th><th>Date Received</th><th>Logged By</th><th>Impact</th></tr></thead>
+                <tbody>
+                  <tr><td>BFA Comment #1</td><td>TSMC Structural Team</td><td>Jun 03, 2025</td><td>Rajan M.</td><td>Phase I – 3 sheets</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== SCREEN: ANALYTICS ==================== -->
+    <div id="screen-analytics" class="screen">
+      <div class="page-header">
+        <h1>Analytics Dashboard</h1>
+        <p>SPM / Tech Head / Management View</p>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="val">3</div><div class="lbl">Active Projects</div><div class="trend" style="color:var(--success);">▲ 1 from last month</div></div>
+        <div class="stat-card"><div class="val">24</div><div class="lbl">Team Members</div><div class="trend" style="color:var(--muted);">Across 3 projects</div></div>
+        <div class="stat-card"><div class="val">847</div><div class="lbl">Hours This Week</div><div class="trend" style="color:var(--danger);">▼ 5% vs target</div></div>
+        <div class="stat-card"><div class="val">78%</div><div class="lbl">On-Time Delivery</div><div class="trend" style="color:var(--success);">▲ 4% vs last quarter</div></div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+        <div class="card">
+          <div class="card-title">📊 Project Progress Overview</div>
+          <table>
+            <thead><tr><th>Project</th><th>Progress</th><th>On Track</th><th>RFIs</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><strong>TSMC Fab 18</strong></td>
+                <td><div class="progress-bar"><div class="fill" style="width:38%;"></div></div> 38%</td>
+                <td><span class="chip chip-green">Yes</span></td>
+                <td>3</td>
+              </tr>
+              <tr>
+                <td><strong>Intel Hillsboro</strong></td>
+                <td><div class="progress-bar"><div class="fill success" style="width:92%;"></div></div> 92%</td>
+                <td><span class="chip chip-green">Yes</span></td>
+                <td>0</td>
+              </tr>
+              <tr>
+                <td><strong>Samsung Austin II</strong></td>
+                <td><div class="progress-bar"><div class="fill warn" style="width:12%;"></div></div> 12%</td>
+                <td><span class="chip chip-yellow">At Risk</span></td>
+                <td>1</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="card">
+          <div class="card-title">👤 Top Contributors (This Month)</div>
+          <table>
+            <thead><tr><th>Member</th><th>Role</th><th>Hours</th><th>Tasks Done</th><th>Efficiency</th></tr></thead>
+            <tbody>
+              <tr><td>Arjun S.</td><td><span class="chip chip-blue">Modeler</span></td><td>168</td><td>6</td><td><span class="chip chip-green">97%</span></td></tr>
+              <tr><td>Meera V.</td><td><span class="chip chip-orange">Editor</span></td><td>142</td><td>8</td><td><span class="chip chip-green">94%</span></td></tr>
+              <tr><td>Suresh P.</td><td><span class="chip chip-purple">Checker</span></td><td>128</td><td>11</td><td><span class="chip chip-green">91%</span></td></tr>
+              <tr><td>Priya K.</td><td><span class="chip chip-blue">Modeler</span></td><td>155</td><td>5</td><td><span class="chip chip-yellow">82%</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="card">
+          <div class="card-title">⏱️ Hours Utilization by Role</div>
+          <div style="display:flex;flex-direction:column;gap:12px;margin-top:8px;">
+            <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span>Modeling</span><span>520 / 800 hrs</span></div><div class="progress-bar"><div class="fill" style="width:65%;"></div></div></div>
+            <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span>Editing</span><span>190 / 600 hrs</span></div><div class="progress-bar"><div class="fill warn" style="width:32%;"></div></div></div>
+            <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span>Checking</span><span>137 / 400 hrs</span></div><div class="progress-bar"><div class="fill success" style="width:34%;"></div></div></div>
+            <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span>RFI/Revision Buffer</span><span>0 / 200 hrs</span></div><div class="progress-bar"><div class="fill danger" style="width:0%;"></div></div></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">📦 Package Status Across Projects</div>
+          <table>
+            <thead><tr><th>Package</th><th>Project</th><th>Stage</th><th>Due</th></tr></thead>
+          <tbody>
+            <tr><td>ABM Phase I</td><td>TSMC Fab 18</td><td><span class="pkg-stage ifa">IFA</span></td><td>Sep 15</td></tr>
+            <tr><td>Phase I Main Steel</td><td>TSMC Fab 18</td><td><span class="pkg-stage pending">Pending</span></td><td>Sep 15</td></tr>
+            <tr><td>Phase III IFC</td><td>Intel Hillsboro</td><td><span class="pkg-stage ifc">IFC</span></td><td>Mar 10</td></tr>
+            <tr><td>Phase I BFA</td><td>Samsung Austin</td><td><span class="pkg-stage bfa">BFA</span></td><td>Dec 01</td></tr>
+          </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== SCREEN: APPROVALS ==================== -->
+    <div id="screen-approvals" class="screen">
+      <div class="page-header">
+        <h1>Pending Approvals</h1>
+        <p>SPM view — approve team member requests and custom tasks</p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">👥 External Member Requests <span class="badge">2 Pending</span></div>
+        <table>
+          <thead><tr><th>Member</th><th>Requested For</th><th>Project</th><th>Reason</th><th>Requested By</th><th>Actions</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><strong>Vikram D.</strong><br><span style="font-size:10px;color:var(--muted);">Sr. Modeler — Team B</span></td>
+              <td>Additional Modeling Capacity</td>
+              <td>TSMC Fab 18</td>
+              <td>Phase II deadline crunch</td>
+              <td>Rajan M. (TL)</td>
+              <td><button class="btn btn-sm btn-success" onclick="approveRequest(this)">✓ Approve</button> <button class="btn btn-sm btn-danger" onclick="rejectRequest(this)">✕ Reject</button></td>
+            </tr>
+            <tr>
+              <td><strong>Anitha R.</strong><br><span style="font-size:10px;color:var(--muted);">Erection Editor — Team C</span></td>
+              <td>Sheet Editing Support</td>
+              <td>TSMC Fab 18</td>
+              <td>Current editor on leave</td>
+              <td>Rajan M. (TL)</td>
+              <td><button class="btn btn-sm btn-success" onclick="approveRequest(this)">✓ Approve</button> <button class="btn btn-sm btn-danger" onclick="rejectRequest(this)">✕ Reject</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <div class="card-title">✏️ Custom Task Approvals <span class="badge">1 Pending</span></div>
+        <table>
+          <thead><tr><th>Task</th><th>Created By</th><th>Phase</th><th>Description</th><th>Est. Hours</th><th>Actions</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><strong>Crane Beam Detail</strong></td>
+              <td>Arjun S. (Modeler)</td>
+              <td>Phase II</td>
+              <td>Client requested additional crane beam modeling not in original scope</td>
+              <td>12 hrs</td>
+              <td><button class="btn btn-sm btn-success" onclick="approveRequest(this)">✓ Approve</button> <button class="btn btn-sm btn-danger">✕ Reject</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<!-- MODAL: Add Member -->
+<div class="modal-overlay" id="modal-add-member">
+  <div class="modal">
+    <h2>Add Team Member</h2>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Name</label>
+        <input type="text" id="new-member-name" placeholder="Full name">
+      </div>
+      <div class="form-group">
+        <label>Role</label>
+        <select id="new-member-role">
+          <option>Modeler</option>
+          <option>Senior Modeler</option>
+          <option>Editor</option>
+          <option>Senior Editor</option>
+          <option>Model Checker</option>
+          <option>Erection Checker</option>
+          <option>Shop Checker</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Grade</label>
+        <select id="new-member-grade">
+          <option>G1</option><option>G2</option><option selected>G3</option><option>G4</option><option>G5 (Senior)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Team</label>
+        <input type="text" id="new-member-team" placeholder="Team name" value="Team A">
+      </div>
+    </div>
+    <div id="ext-member-note" style="display:none;" class="approval-banner" style="margin-top:12px;">
+      <div class="icon">⚠️</div>
+      <span>This request will be sent to SPM for approval before this member is added.</span>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-add-member')">Cancel</button>
+      <button class="btn btn-primary" onclick="addMember()">Add Member</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Create Task -->
+<div class="modal-overlay" id="modal-create-task">
+  <div class="modal">
+    <h2>Create Custom Task</h2>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:14px;">Custom tasks require TL approval before appearing on the board.</p>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Task Name</label>
+        <input type="text" placeholder="e.g. Crane Beam Detail">
+      </div>
+      <div class="form-group">
+        <label>Phase</label>
+        <select>
+          <option>Phase I – Area A</option>
+          <option>Phase II – Area C</option>
+          <option>Phase III – Elevator</option>
+          <option>Phase IV – Outer Red Box</option>
+          <option>Stairs</option>
+          <option>Arch Misc</option>
+        </select>
+      </div>
+      <div class="form-group full">
+        <label>Description</label>
+        <textarea placeholder="Why is this task needed? What does it cover?"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Estimated Hours</label>
+        <input type="number" placeholder="e.g. 8">
+      </div>
+      <div class="form-group">
+        <label>Priority</label>
+        <select><option>Normal</option><option>High</option><option>Low</option></select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-create-task')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitCustomTask()">Submit for Approval</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: RFI Upload -->
+<div class="modal-overlay" id="modal-rfi">
+  <div class="modal">
+    <h2>Upload / Log RFI</h2>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>RFI Number</label>
+        <input type="text" placeholder="e.g. RFI-004">
+      </div>
+      <div class="form-group">
+        <label>Date Sent</label>
+        <input type="date" value="2025-06-05">
+      </div>
+      <div class="form-group full">
+        <label>Description</label>
+        <textarea placeholder="Describe the RFI subject..."></textarea>
+      </div>
+      <div class="form-group">
+        <label>Affected Phase</label>
+        <select>
+          <option>Phase I – Area A</option>
+          <option>Phase II – Area C</option>
+          <option>Phase III – Elevator</option>
+          <option>Phase IV – Outer Red Box</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Affected Task</label>
+        <select>
+          <option>Anchor Bolt</option>
+          <option>Foundation Embeds</option>
+          <option>Connections</option>
+          <option>Plan Sheets</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-rfi')">Cancel</button>
+      <button class="btn btn-primary" onclick="addRFI()">Log RFI</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ========== STATE ==========
+const PHASES = ['Phase I','Phase II','Phase III','Phase IV'];
+const PHASE_NAMES = { 'Phase I':'Area A','Phase II':'Area C','Phase III':'Elevator Framing','Phase IV':'Outer Red Box' };
+
+const COLORS = ['#2d7dd2','#e63946','#2ec4b6','#f4a261','#a855f7','#059669','#dc2626','#7c3aed'];
+
+const CORE_TEAM = [
+  { id:1, name:'Arjun Sharma', role:'Modeler', grade:'G3', tasks:3, color:'#2d7dd2', initials:'AS' },
+  { id:2, name:'Priya Kapoor', role:'Senior Modeler', grade:'G4', tasks:2, color:'#7c3aed', initials:'PK' },
+  { id:3, name:'Meera Verma', role:'Editor', grade:'G3', tasks:4, color:'#e63946', initials:'MV' },
+  { id:4, name:'Suresh Pillai', role:'Erection Checker', grade:'G4', tasks:5, color:'#059669', initials:'SP' },
+  { id:5, name:'Rahul Nair', role:'Model Checker', grade:'G3', tasks:2, color:'#f4a261', initials:'RN' },
+  { id:6, name:'Kavya Singh', role:'Shop Checker', grade:'G2', tasks:1, color:'#0891b2', initials:'KS' },
+];
+
+const AUTO_TASKS = {
+  Modeling: [
+    ...(PHASES.flatMap(p => ['Wireframe','Anchor Bolt','Foundation Embeds','Embeds','Secondary Structural Steel','Connections'].map(t => ({name:t, phase:p, role:'Modeling', assignee:null})))),
+    {name:'Stairs', phase:'Stairs', role:'Modeling', assignee:null},
+    {name:'Arch Misc', phase:'Arch Misc', role:'Modeling', assignee:null},
+  ],
+  Editing: [
+    ...(PHASES.flatMap(p => ['Plan Sheets','Detail Sheets','Elevation'].map(t => ({name:t, phase:p, role:'Editing', assignee:null})))),
+    {name:'Stairs', phase:'Stairs', role:'Editing', assignee:null},
+    {name:'Arch Misc', phase:'Arch Misc', role:'Editing', assignee:null},
+    {name:'Revision Changes', phase:'Post-IFA', role:'Editing', assignee:null, postIFA:true},
+    {name:'BFA Comment Implementation', phase:'Post-IFA', role:'Editing', assignee:null, postIFA:true},
+    ...(PHASES.map(p => ({name:`Phase Wise Steel – ${p}`, phase:p, role:'Shop Editing', assignee:null}))),
+  ],
+  Checking: [
+    ...(PHASES.flatMap(p => ['Wireframe','Anchor Bolt','Foundation Embeds','Embeds','Secondary Structural Steel','Connections'].map(t => ({name:t, phase:p, role:'Model Checking', assignee:null})))),
+    {name:'Stairs', phase:'Stairs', role:'Model Checking', assignee:null},
+    {name:'Arch Misc', phase:'Arch Misc', role:'Model Checking', assignee:null},
+    {name:'BFA Changes Checking', phase:'Post-IFA', role:'Model Checking', assignee:null, postIFA:true},
+    {name:'Revision Changes Checking', phase:'Post-IFA', role:'Model Checking', assignee:null, postIFA:true},
+    ...(PHASES.flatMap(p => ['Plan Sheets','Detail Sheets','Elevation Sheets','Sheet Notes','Stairs','Arch Misc'].map(t => ({name:t, phase:p, role:'Erection Checking', assignee:null})))),
+    {name:'BFA Changes Checking', phase:'Post-IFA', role:'Erection Checking', assignee:null, postIFA:true},
+    {name:'Revision Changes Checking', phase:'Post-IFA', role:'Erection Checking', assignee:null, postIFA:true},
+    ...(PHASES.map(p => ({name:`Phase Wise Steel – ${p}`, phase:p, role:'Shop Checking', assignee:null}))),
+  ]
+};
+
+const PACKAGES = [
+  { name:'ABM Package', desc:'Includes Wireframe (all phases)', phases:['Phase I','Phase II','Phase III','Phase IV'], stages:{ifa:'done',bfa:'pending',rnr:'pending',ifc:'pending'} },
+  { name:'Phase I AnchorBolt', desc:'Anchor Bolt, Foundation Embeds + Erection Sheets', phases:['Phase I'], stages:{ifa:'done',bfa:'done',rnr:'pending',ifc:'pending'} },
+  { name:'Phase II Main Steel', desc:'Connections + Erection Sheets Phase II', phases:['Phase II'], stages:{ifa:'active',bfa:'pending',rnr:'pending',ifc:'pending'} },
+  { name:'Phase III Main Steel', desc:'Connections + Elevator Sheets', phases:['Phase III'], stages:{ifa:'pending',bfa:'pending',rnr:'pending',ifc:'pending'} },
+  { name:'Phase IV Outer Steel', desc:'Full Phase IV package', phases:['Phase IV'], stages:{ifa:'pending',bfa:'pending',rnr:'pending',ifc:'pending'} },
+];
+
+let currentEmpRole = 'Modeler';
+let timerInterval = null;
+let timerSeconds = 0;
+let currentRole = 'tl';
+let phaseCount = 4;
+let addMemberType = 'core';
+
+const SCRUMB_BOARDS = {
+  Modeler: ['To Model','Modeling in Progress','Model in Review','Model Checked – Changes in Progress','Model Done'],
+  Editor: ['To Edit','Editing in Progress','Sheets in Review','Sheets Checked – Changes in Progress','Sheets Done'],
+  'Model Checker': ['To Check','Model Checked – Changes in Progress','Changes in Review','Model Done'],
+  'Erection Checker': ['Checking in Progress','Sheets Checked – Changes in Progress','Sheets Done'],
+};
+
+// ========== SHARED MODELING DEPENDENCY STATE ==========
+// Single source of truth — both Modeler and Model Checker boards read from here.
+const MODELING_TASKS = [
+  {title:'Wireframe – Phase I',         phase:'Phase I',  status:'done',      timer:null,       hours:42},
+  {title:'Anchor Bolt – Phase I',       phase:'Phase I',  status:'done',      timer:null,       hours:36},
+  {title:'Foundation Embeds – Phase I', phase:'Phase I',  status:'in-review', timer:null,       hours:0},
+  {title:'Wireframe – Phase II',        phase:'Phase II', status:'modeling',  timer:'01:24:07', hours:0},
+  {title:'Embeds – Phase II',           phase:'Phase II', status:'to-model',  timer:null,       hours:0},
+  {title:'Stairs',                      phase:'Stairs',   status:'to-model',  timer:null,       hours:0},
+];
+
+// Internal status → column label on Modeler's board
+const MODELER_COL = {
+  'to-model':       'To Model',
+  'modeling':       'Modeling in Progress',
+  'in-review':      'Model in Review',
+  'checker-wip':    'Model Checked – Changes in Progress',
+  'changes-needed': 'Model Checked – Changes in Progress',
+  'resubmitted':    'Model in Review',
+  'done':           'Model Done',
+};
+
+// Internal status → column label on Checker's board
+const CHECKER_COL = {
+  'in-review':    'To Check',
+  'checker-wip':  'Model Checked – Changes in Progress',
+  'resubmitted':  'Changes in Review',
+  'done':         'Model Done',
+};
+
+// Drag transitions allowed for Modeler (status → next status after drop)
+const MODELER_TRANSITIONS = {
+  'to-model':       'modeling',
+  'modeling':       'in-review',
+  'changes-needed': 'resubmitted',
+};
+
+// Drag transitions allowed for Checker (picking up from queue)
+const CHECKER_DRAG_TRANSITIONS = {
+  'in-review':   'checker-wip',
+  'resubmitted': 'checker-wip',
+};
+
+const SAMPLE_TASKS = {
+  Modeler: [], // unused – Modeler board reads MODELING_TASKS directly
+  Editor: [
+    {title:'Plan Sheets – Phase I', phase:'Phase I', status:'Sheets Done', timer:null, hours:28},
+    {title:'Detail Sheets – Phase I', phase:'Phase I', status:'Sheets in Review', timer:null, hours:0},
+    {title:'Elevation – Phase I', phase:'Phase I', status:'To Edit', timer:null, hours:0},
+    {title:'Plan Sheets – Phase II', phase:'Phase II', status:'Editing in Progress', timer:'00:47:32', hours:0},
+  ],
+  'Model Checker': [], // unused – Checker board reads MODELING_TASKS directly
+  'Erection Checker': [
+    {title:'Plan Sheets Check – Phase I', phase:'Phase I', status:'Sheets Done', timer:null, hours:22},
+    {title:'Detail Sheets Check – Phase I', phase:'Phase I', status:'Checking in Progress', timer:'00:12:44', hours:0},
+    {title:'Elevation Sheets – Phase I', phase:'Phase I', status:'Sheets Checked – Changes in Progress', timer:null, hours:0},
+  ],
+};
+
+const RFIS = [
+  {id:'RFI-001', desc:'Anchor bolt spacing clarification – Phase I NE corner', phase:'Phase I', task:'Anchor Bolt', status:'Open', date:'2025-05-28', package:'ABM Package'},
+  {id:'RFI-002', desc:'Column base plate dimensions for Grid 4-7', phase:'Phase II', task:'Foundation Embeds', status:'Pending Client', date:'2025-06-01', package:'Phase II Main Steel'},
+  {id:'RFI-003', desc:'Stair handrail connection detail missing from drawings', phase:'Stairs', task:'Stairs', status:'Open', date:'2025-06-04', package:'None'},
+];
+
+// ========== TOAST ==========
+function showToast(msg, color) {
+  let t = document.getElementById('toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'toast';
+    t.style.cssText = 'position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(20px);background:#1a2535;color:#fff;padding:10px 20px;border-radius:99px;font-size:12px;font-weight:600;z-index:9999;opacity:0;transition:all 0.25s;pointer-events:none;border-left:4px solid #2d7dd2;white-space:nowrap;';
+    document.body.appendChild(t);
+  }
+  t.style.borderLeftColor = color || '#2d7dd2';
+  t.textContent = msg;
+  t.style.opacity = '1';
+  t.style.transform = 'translateX(-50%) translateY(0)';
+  clearTimeout(t._timeout);
+  t._timeout = setTimeout(() => {
+    t.style.opacity = '0';
+    t.style.transform = 'translateX(-50%) translateY(20px)';
+  }, 3200);
+}
+
+// ========== INIT ==========
+window.onload = function() {
+  renderCoreTeam();
+  renderTasks();
+  renderTeamInventory();
+  renderEmpBoard('Modeler');
+  renderTLBoard();
+  renderPackages();
+  renderRFI();
+  renderWeightage();
+  startClock();
+  // Boot as TL
+  switchRole('tl');
+};
+
+function startClock() {
+  setInterval(() => {
+    timerSeconds++;
+    const h = String(Math.floor(timerSeconds/3600)).padStart(2,'0');
+    const m = String(Math.floor((timerSeconds%3600)/60)).padStart(2,'0');
+    const s = String(timerSeconds%60).padStart(2,'0');
+    const el = document.getElementById('live-clock');
+    if (el) el.textContent = `${h}:${m}:${s}`;
+  }, 1000);
+}
+
+// ========== NAVIGATION ==========
+const SCREEN_LABELS = {
+  'project-create': 'New Project',
+  'project-list':   'All Projects',
+  'task-assign':    'Tasks & Phases',
+  'weightage':      'Weightage',
+  'employee-board': 'My Board',
+  'tl-board':       'TL Dashboard',
+  'rfi':            'RFI Management',
+  'psr':            'PSR',
+  'analytics':      'Analytics',
+  'approvals':      'Approvals',
+};
+
+// Screens each role is allowed to visit
+const ROLE_ACCESS = {
+  employee: ['employee-board'],
+  tl:       ['project-create','project-list','task-assign','weightage','employee-board','tl-board','rfi','psr','approvals'],
+  spm:      ['project-create','project-list','task-assign','weightage','tl-board','rfi','psr','approvals','analytics'],
+};
+
+function showScreen(id) {
+  // Access check
+  const allowed = ROLE_ACCESS[currentRole] || [];
+  if (!allowed.includes(id)) {
+    showToast(`🔒 "${SCREEN_LABELS[id] || id}" is not accessible for your role.`, '#e63946');
+    return;
+  }
+
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('#sidebar-nav a').forEach(a => a.classList.remove('active'));
+
+  const screen = document.getElementById('screen-' + id);
+  if (screen) screen.classList.add('active');
+
+  const nav = document.getElementById('nav-' + id);
+  if (nav) nav.classList.add('active');
+
+  document.getElementById('breadcrumb').innerHTML = `<strong>${SCREEN_LABELS[id] || id}</strong>`;
+}
+
+function switchTab(tabEl, containerId, targetId) {
+  const container = document.getElementById(containerId);
+  container.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  tabEl.parentElement.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  tabEl.classList.add('active');
+  document.getElementById(targetId).classList.add('active');
+}
+
+// ========== ROLE DEFINITIONS ==========
+const ROLE_PROFILES = {
+  employee: {
+    name: 'Arjun Sharma', label: 'Modeler', initials: 'AS', avatarColor: '#2d7dd2',
+    defaultScreen: 'employee-board',
+    nav: [
+      { section: 'My Work' },
+      { id: 'employee-board', icon: '👤', label: 'My Board' },
+    ]
+  },
+  tl: {
+    name: 'Rajan Mehta', label: 'Team Lead', initials: 'RM', avatarColor: '#7c3aed',
+    defaultScreen: 'tl-board',
+    nav: [
+      { section: 'Projects' },
+      { id: 'project-create', icon: '➕', label: 'New Project' },
+      { id: 'project-list',   icon: '📁', label: 'All Projects' },
+      { section: 'Task Management' },
+      { id: 'task-assign',    icon: '🗂️', label: 'Tasks & Phases' },
+      { id: 'weightage',      icon: '⚖️', label: 'Weightage' },
+      { section: 'Boards' },
+      { id: 'employee-board', icon: '👤', label: 'My Board' },
+      { id: 'tl-board',       icon: '📊', label: 'TL Board' },
+      { section: 'Management' },
+      { id: 'rfi',            icon: '📋', label: 'RFI Manager' },
+      { id: 'psr',            icon: '📄', label: 'PSR' },
+      { id: 'approvals',      icon: '✅', label: 'Approvals', badge: true },
+    ]
+  },
+  spm: {
+    name: 'Deepak Joshi', label: 'Sr. Project Manager', initials: 'DJ', avatarColor: '#059669',
+    defaultScreen: 'analytics',
+    nav: [
+      { section: 'Projects' },
+      { id: 'project-create', icon: '➕', label: 'New Project' },
+      { id: 'project-list',   icon: '📁', label: 'All Projects' },
+      { section: 'Task Management' },
+      { id: 'task-assign',    icon: '🗂️', label: 'Tasks & Phases' },
+      { id: 'weightage',      icon: '⚖️', label: 'Weightage' },
+      { section: 'Boards' },
+      { id: 'tl-board',       icon: '📊', label: 'TL Board' },
+      { section: 'Management' },
+      { id: 'rfi',            icon: '📋', label: 'RFI Manager' },
+      { id: 'psr',            icon: '📄', label: 'PSR' },
+      { id: 'approvals',      icon: '✅', label: 'Approvals', badge: true },
+      { section: 'Executive' },
+      { id: 'analytics',      icon: '📈', label: 'Analytics' },
+    ]
+  }
+};
+
+function renderSidebar(role) {
+  const profile = ROLE_PROFILES[role];
+  const nav = document.getElementById('sidebar-nav');
+  nav.innerHTML = '';
+
+  // Role banner at top of nav
+  nav.innerHTML += `<div style="margin:10px 12px 6px;background:#1a3c5e;border-radius:8px;padding:10px 12px;">
+    <div style="font-size:10px;color:#4a90c4;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Signed in as</div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <div style="width:28px;height:28px;border-radius:50%;background:${profile.avatarColor};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;color:#fff;flex-shrink:0;">${profile.initials}</div>
+      <div><div style="color:#fff;font-weight:600;font-size:12px;">${profile.name}</div><div style="color:#4a90c4;font-size:10px;">${profile.label}</div></div>
+    </div>
+  </div>`;
+
+  profile.nav.forEach(item => {
+    if (item.section) {
+      nav.innerHTML += `<div class="section-label">${item.section}</div>`;
+    } else {
+      const badge = item.badge ? '<span class="notif-dot" style="margin-left:auto;"></span>' : '';
+      nav.innerHTML += `<a onclick="showScreen('${item.id}')" id="nav-${item.id}">
+        <span class="icon">${item.icon}</span><span>${item.label}</span>${badge}
+      </a>`;
+    }
+  });
+}
+
+// ========== ROLE SWITCH ==========
+function switchRole(role) {
+  currentRole = role;
+  const profile = ROLE_PROFILES[role];
+
+  // Update topbar
+  document.getElementById('user-name').textContent = profile.name;
+  document.getElementById('user-role').textContent = profile.label;
+  document.getElementById('user-avatar').textContent = profile.initials;
+  document.getElementById('user-avatar').style.background = profile.avatarColor;
+
+  // Update switcher button styles
+  ['employee','tl','spm'].forEach(r => {
+    const btn = document.getElementById('rbtn-' + r);
+    btn.style.background = r === role ? '#fff' : 'transparent';
+    btn.style.color = r === role ? 'var(--primary)' : 'var(--muted)';
+    btn.style.fontWeight = r === role ? '700' : '400';
+    btn.style.boxShadow = r === role ? '0 1px 3px rgba(0,0,0,0.12)' : 'none';
+    btn.style.border = 'none';
+  });
+
+  // Rebuild sidebar
+  renderSidebar(role);
+
+  // Show role-specific toast
+  const toastMessages = {
+    employee: '👤 Viewing as Employee — only your task board is accessible.',
+    tl: '🗂 Viewing as Team Lead — project management and boards unlocked.',
+    spm: '🏢 Viewing as Sr. Project Manager — full access including analytics and approvals.',
+  };
+  showToast(toastMessages[role], profile.avatarColor);
+
+  // Navigate to that role's default screen
+  showScreen(profile.defaultScreen);
+}
+
+// ========== PHASES ==========
+const ROMAN = ['I','II','III','IV','V','VI','VII','VIII'];
+function addPhase() {
+  phaseCount++;
+  const list = document.getElementById('phase-list');
+  const div = document.createElement('div');
+  div.className = 'phase-item';
+  div.innerHTML = `
+    <div class="phase-num">${ROMAN[phaseCount-1]||phaseCount}</div>
+    <input class="phase-name" type="text" value="New Phase ${phaseCount}" style="border:none;background:transparent;font-weight:600;font-size:13px;flex:1;" placeholder="Phase name">
+    <input type="text" value="" style="border:none;background:transparent;color:var(--muted);font-size:12px;flex:2;" placeholder="Description">
+    <select style="font-size:11px;padding:4px 6px;"><option>Active</option><option selected>Upcoming</option><option>On Hold</option></select>
+    <button class="btn btn-sm btn-danger" onclick="removePhase(this)">✕</button>`;
+  list.appendChild(div);
+  document.getElementById('phase-count-badge').textContent = `${phaseCount} Phases`;
+}
+function removePhase(btn) {
+  btn.closest('.phase-item').remove();
+  phaseCount = Math.max(0, phaseCount-1);
+  document.getElementById('phase-count-badge').textContent = `${phaseCount} Phases`;
+}
+
+// ========== TEAM ==========
+function renderCoreTeam() {
+  const el = document.getElementById('core-team-list');
+  el.innerHTML = '';
+  CORE_TEAM.forEach(m => {
+    const roleChip = roleChipHtml(m.role);
+    el.innerHTML += `<div class="member-card">
+      <div class="av" style="background:${m.color}">${m.initials}</div>
+      <div class="info">
+        <div class="name">${m.name}</div>
+        <div class="sub">${m.role} · ${m.grade}</div>
+      </div>
+      ${roleChip}
+      <div class="tooltip">
+        <strong>${m.name}</strong><br>
+        Grade: ${m.grade}<br>
+        Role: ${m.role}<br>
+        Active Tasks: ${m.tasks}<br>
+        Workload: ${m.tasks > 4 ? '🔴 High' : m.tasks > 2 ? '🟡 Medium' : '🟢 Low'}
+      </div>
+    </div>`;
+  });
+}
+
+function roleChipHtml(role) {
+  if (role.toLowerCase().includes('model')) return '<span class="chip chip-blue">M</span>';
+  if (role.toLowerCase().includes('edit')) return '<span class="chip chip-orange">E</span>';
+  if (role.toLowerCase().includes('check')) return '<span class="chip chip-green">C</span>';
+  return '<span class="chip chip-gray">?</span>';
+}
+
+function openAddMemberModal(type) {
+  addMemberType = type;
+  document.getElementById('ext-member-note').style.display = type==='ext' ? 'flex' : 'none';
+  document.getElementById('modal-add-member').classList.add('open');
+}
+function addMember() {
+  const name = document.getElementById('new-member-name').value || 'New Member';
+  const role = document.getElementById('new-member-role').value;
+  const grade = document.getElementById('new-member-grade').value;
+  const colors = ['#2d7dd2','#e63946','#2ec4b6','#f4a261','#a855f7'];
+  const color = colors[Math.floor(Math.random()*colors.length)];
+  const initials = name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+  if (addMemberType === 'core') {
+    CORE_TEAM.push({id: Date.now(), name, role, grade, tasks:0, color, initials});
+    renderCoreTeam();
+  } else {
+    const list = document.getElementById('ext-team-list');
+    list.innerHTML += `<div class="member-card">
+      <div class="av" style="background:${color}">${initials}</div>
+      <div class="info"><div class="name">${name}</div><div class="sub">${role} · ${grade} · <span style="color:var(--warn);">⏳ Awaiting SPM Approval</span></div></div>
+    </div>`;
+  }
+  closeModal('modal-add-member');
+  renderTeamInventory();
+}
+
+// ========== TASKS ==========
+function renderTeamInventory() {
+  const el = document.getElementById('team-inventory');
+  if (!el) return;
+  el.innerHTML = '';
+  CORE_TEAM.forEach(m => {
+    const wl = m.tasks > 4 ? 'danger' : m.tasks > 2 ? 'warn' : 'success';
+    el.innerHTML += `<div class="member-card draggable" draggable="true" data-member-id="${m.id}" ondragstart="dragStart(event,${m.id})">
+      <div class="av" style="background:${m.color}">${m.initials}</div>
+      <div class="info">
+        <div class="name">${m.name}</div>
+        <div class="sub">${m.role} · ${m.grade}</div>
+        <div class="progress-bar" style="margin-top:4px;"><div class="fill ${wl}" style="width:${Math.min(m.tasks/6*100,100)}%;"></div></div>
+      </div>
+      <div class="tooltip">
+        <strong>${m.name}</strong><br>
+        Grade: ${m.grade}<br>
+        Role: ${m.role}<br>
+        Active Tasks: ${m.tasks}<br>
+        Workload: ${m.tasks > 4 ? '🔴 High' : m.tasks > 2 ? '🟡 Medium' : '🟢 Low'}
+      </div>
+    </div>`;
+  });
+}
+
+function renderTasks() {
+  const panel = document.getElementById('tasks-panel');
+  if (!panel) return;
+  const filterRole = document.getElementById('filter-role')?.value || '';
+  const filterPhase = document.getElementById('filter-phase')?.value || '';
+  const filterAssigned = document.getElementById('filter-assigned')?.value || '';
+
+  let html = '';
+  const categories = ['Modeling', 'Editing', 'Checking'];
+  categories.forEach(cat => {
+    if (filterRole && filterRole !== cat) return;
+    const tasks = AUTO_TASKS[cat] || [];
+    const filtered = tasks.filter(t => {
+      if (filterPhase && t.phase !== filterPhase) return false;
+      if (filterAssigned === 'assigned' && !t.assignee) return false;
+      if (filterAssigned === 'unassigned' && t.assignee) return false;
+      return true;
+    });
+    if (filtered.length === 0) return;
+
+    const grouped = {};
+    filtered.forEach(t => { if (!grouped[t.phase]) grouped[t.phase] = []; grouped[t.phase].push(t); });
+
+    html += `<div class="card"><div class="card-title">${cat === 'Modeling' ? '🔧' : cat === 'Editing' ? '✏️' : '✅'} ${cat} Tasks</div>`;
+    Object.keys(grouped).forEach(phase => {
+      const phaseColor = phase.startsWith('Phase') ? COLORS[['Phase I','Phase II','Phase III','Phase IV'].indexOf(phase)] : '#6b7c93';
+      html += `<div style="margin-bottom:14px;">
+        <div style="font-size:11px;font-weight:700;color:${phaseColor};margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">${phase}${PHASE_NAMES[phase]?' – '+PHASE_NAMES[phase]:''}</div>
+        <div class="droppable" id="drop-${cat}-${phase.replace(/ /g,'_')}" ondragover="dragOver(event)" ondrop="dropTask(event,'${cat}','${phase}')">`;
+      grouped[phase].forEach(t => {
+        const assignee = t.assignee ? CORE_TEAM.find(m=>m.id===t.assignee) : null;
+        html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:#fff;border-radius:6px;border:1px solid var(--border);margin-bottom:4px;">
+          <span style="font-size:12px;font-weight:600;flex:1;">${t.name}</span>
+          ${t.postIFA ? '<span class="chip chip-purple" style="font-size:9px;">Post-IFA</span>' : ''}
+          ${assignee ? `<div class="av" style="background:${assignee.color};width:24px;height:24px;font-size:10px;">${assignee.initials}</div><span style="font-size:11px;color:var(--muted);">${assignee.name.split(' ')[0]}</span><button class="btn btn-sm btn-danger" onclick="unassignTask('${cat}','${phase}','${t.name}')">✕</button>`
+          : '<span style="font-size:11px;color:var(--muted);font-style:italic;">Drag member here</span>'}
+        </div>`;
+      });
+      html += `</div></div>`;
+    });
+    html += `</div>`;
+  });
+  panel.innerHTML = html || '<div class="card"><p style="color:var(--muted);text-align:center;padding:20px;">No tasks match the current filters.</p></div>';
+}
+
+function filterTasks() { renderTasks(); }
+function clearFilters() {
+  document.getElementById('filter-role').value = '';
+  document.getElementById('filter-phase').value = '';
+  document.getElementById('filter-assigned').value = '';
+  renderTasks();
+}
+function regenerateTasks() { renderTasks(); }
+
+let draggedMemberId = null;
+function dragStart(e, memberId) { draggedMemberId = memberId; }
+function dragOver(e) { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }
+function dropTask(e, cat, phase) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  if (!draggedMemberId) return;
+  const member = CORE_TEAM.find(m => m.id === draggedMemberId);
+  if (!member) return;
+  const tasks = AUTO_TASKS[cat].filter(t => t.phase === phase);
+  const unassigned = tasks.find(t => !t.assignee);
+  if (unassigned) {
+    unassigned.assignee = draggedMemberId;
+    member.tasks++;
+    renderTasks();
+    renderTeamInventory();
+  }
+}
+function unassignTask(cat, phase, taskName) {
+  const task = AUTO_TASKS[cat].find(t => t.phase === phase && t.name === taskName);
+  if (task && task.assignee) {
+    const m = CORE_TEAM.find(m => m.id === task.assignee);
+    if (m) m.tasks = Math.max(0, m.tasks-1);
+    task.assignee = null;
+    renderTasks();
+    renderTeamInventory();
+  }
+}
+
+// ========== EMPLOYEE BOARD ==========
+function setEmpRole(role) {
+  currentEmpRole = role;
+  document.getElementById('emp-role-display').textContent = role;
+  document.querySelectorAll('#screen-employee-board .filter-bar button').forEach(b => b.className = 'btn btn-sm btn-ghost');
+  event.target.className = 'btn btn-sm btn-primary';
+  renderEmpBoard(role);
+}
+
+let scrumDragTitle = null;
+let scrumDragRole  = null;
+
+function renderEmpBoard(role) {
+  if (role === 'Modeler')       { renderModelerBoard();  return; }
+  if (role === 'Model Checker') { renderCheckerBoard();  return; }
+
+  // Generic board for Editor / Erection Checker
+  const board = document.getElementById('emp-scrum-board');
+  if (!board) return;
+  const cols  = SCRUMB_BOARDS[role] || [];
+  const tasks = SAMPLE_TASKS[role]  || [];
+  board.innerHTML = '';
+
+  cols.forEach(col => {
+    const colTasks     = tasks.filter(t => t.status === col);
+    const isInProgress = col.toLowerCase().includes('progress');
+
+    const colEl = document.createElement('div');
+    colEl.className   = 'scrum-col';
+    colEl.dataset.col = col;
+
+    const header = document.createElement('div');
+    header.className = 'scrum-col-header';
+    header.innerHTML = `<span>${col}</span><span class="count">${colTasks.length}</span>`;
+    colEl.appendChild(header);
+
+    colTasks.forEach(t => {
+      const card = document.createElement('div');
+      card.className     = 'task-card';
+      card.draggable     = true;
+      card.dataset.title = t.title;
+
+      card.innerHTML = `
+        <div style="display:flex;align-items:flex-start;gap:4px;">
+          <span class="drag-handle" title="Drag to move">⠿</span>
+          <div style="flex:1;">
+            <div class="tc-title">${t.title}</div>
+            <div class="tc-meta">
+              <span class="chip chip-blue" style="font-size:9px;">${t.phase}</span>
+              ${t.timer ? `<span class="tc-timer">⏱ ${t.timer}</span>` : ''}
+              ${t.hours ? `<span>${t.hours}h logged</span>` : ''}
+            </div>
+            ${isInProgress && !t.timer ? '<div style="margin-top:5px;font-size:10px;color:var(--muted);">Drop here to start timer</div>' : ''}
+          </div>
+        </div>`;
+
+      card.addEventListener('dragstart', e => {
+        scrumDragTitle = t.title; scrumDragRole = role;
+        card.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        setTimeout(() => card.classList.add('dragging'), 0);
+      });
+      card.addEventListener('dragend', () => {
+        card.classList.remove('dragging');
+        document.querySelectorAll('.scrum-col').forEach(c => c.classList.remove('col-drag-over'));
+      });
+      colEl.appendChild(card);
+    });
+
+    if (colTasks.length === 0) {
+      const hint = document.createElement('div');
+      hint.className = 'drop-hint';
+      hint.textContent = 'Drop task here';
+      colEl.appendChild(hint);
+    }
+
+    colEl.addEventListener('dragover', e => { e.preventDefault(); colEl.classList.add('col-drag-over'); });
+    colEl.addEventListener('dragleave', e => { if (!colEl.contains(e.relatedTarget)) colEl.classList.remove('col-drag-over'); });
+    colEl.addEventListener('drop', e => {
+      e.preventDefault();
+      colEl.classList.remove('col-drag-over');
+      if (!scrumDragTitle || scrumDragRole !== role) return;
+      const taskList = SAMPLE_TASKS[role];
+      const task = taskList.find(t => t.title === scrumDragTitle);
+      if (!task || task.status === col) return;
+      if (col.toLowerCase().includes('progress')) {
+        const alreadyActive = taskList.find(t => t.status !== task.status && t.timer && t.title !== task.title);
+        if (alreadyActive) { showToast('⚠️ Only one task can be In Progress at a time.', '#e63946'); return; }
+        task.timer = '00:00:01';
+      } else {
+        task.timer = null;
+      }
+      task.status = col;
+      scrumDragTitle = null;
+      renderEmpBoard(role);
+    });
+
+    board.appendChild(colEl);
+  });
+}
+
+// ========== MODELER BOARD (dependency-aware) ==========
+function renderModelerBoard() {
+  const board = document.getElementById('emp-scrum-board');
+  if (!board) return;
+  board.innerHTML = '';
+  const cols = ['To Model','Modeling in Progress','Model in Review','Model Checked – Changes in Progress','Model Done'];
+  // Valid drop-target columns derived from transitions
+  const dropTargetCols = new Set(Object.values(MODELER_TRANSITIONS).map(s => MODELER_COL[s]));
+
+  cols.forEach(col => {
+    const colTasks = MODELING_TASKS.filter(t => MODELER_COL[t.status] === col);
+    const colEl = document.createElement('div');
+    colEl.className = 'scrum-col';
+    colEl.dataset.col = col;
+    colEl.innerHTML = `<div class="scrum-col-header"><span>${col}</span><span class="count">${colTasks.length}</span></div>`;
+
+    colTasks.forEach(t => {
+      const canDrag      = !!MODELER_TRANSITIONS[t.status];
+      const isCheckerWip = t.status === 'checker-wip';
+      const isDoneGreen  = t.status === 'done';
+
+      const card = document.createElement('div');
+      card.className = 'task-card' +
+        (isDoneGreen  ? ' task-done-green' : '') +
+        (isCheckerWip ? ' task-grayed'     : '');
+      if (canDrag) { card.draggable = true; card.dataset.title = t.title; }
+
+      card.innerHTML = `
+        <div style="display:flex;align-items:flex-start;gap:4px;">
+          ${canDrag ? '<span class="drag-handle" title="Drag to move">⠿</span>' : ''}
+          <div style="flex:1;">
+            <div class="tc-title">${t.title}</div>
+            <div class="tc-meta">
+              <span class="chip chip-blue" style="font-size:9px;">${t.phase}</span>
+              ${t.timer ? `<span class="tc-timer">⏱ ${t.timer}</span>` : ''}
+              ${t.hours ? `<span>${t.hours}h logged</span>` : ''}
+              ${isCheckerWip ? '<span style="font-size:10px;color:var(--muted);font-style:italic;">⏳ Checker reviewing</span>' : ''}
+              ${isDoneGreen  ? '<span style="font-size:10px;color:#059669;font-weight:600;">✓ Approved</span>' : ''}
+              ${t.status==='changes-needed' ? '<span style="font-size:10px;color:#e63946;font-weight:600;">↩ Changes requested</span>' : ''}
+            </div>
+          </div>
+        </div>`;
+
+      if (canDrag) {
+        card.addEventListener('dragstart', e => {
+          scrumDragTitle = t.title; scrumDragRole = 'Modeler';
+          e.dataTransfer.effectAllowed = 'move';
+          setTimeout(() => card.classList.add('dragging'), 0);
+        });
+        card.addEventListener('dragend', () => {
+          card.classList.remove('dragging');
+          document.querySelectorAll('.scrum-col').forEach(c => c.classList.remove('col-drag-over'));
+        });
+      }
+      colEl.appendChild(card);
+    });
+
+    if (colTasks.length === 0) {
+      const hint = document.createElement('div');
+      hint.className = 'drop-hint';
+      hint.textContent = dropTargetCols.has(col) ? 'Drop task here' : '—';
+      colEl.appendChild(hint);
+    }
+
+    if (dropTargetCols.has(col)) {
+      colEl.addEventListener('dragover', e => { e.preventDefault(); colEl.classList.add('col-drag-over'); });
+      colEl.addEventListener('dragleave', e => { if (!colEl.contains(e.relatedTarget)) colEl.classList.remove('col-drag-over'); });
+      colEl.addEventListener('drop', e => {
+        e.preventDefault();
+        colEl.classList.remove('col-drag-over');
+        if (!scrumDragTitle || scrumDragRole !== 'Modeler') return;
+        const task = MODELING_TASKS.find(t => t.title === scrumDragTitle);
+        if (!task) return;
+        const nextStatus = MODELER_TRANSITIONS[task.status];
+        if (!nextStatus || MODELER_COL[nextStatus] !== col) return;
+
+        if (col === 'Modeling in Progress') {
+          const alreadyActive = MODELING_TASKS.find(t => t.status === 'modeling' && t.title !== task.title);
+          if (alreadyActive) { showToast('⚠️ Only one task can be In Progress at a time.', '#e63946'); return; }
+          task.timer = '00:00:01';
+        } else {
+          task.timer = null;
+        }
+
+        task.status = nextStatus;
+        scrumDragTitle = null;
+        renderModelerBoard();
+        if (nextStatus === 'in-review')    showToast('📋 Task sent to Model Checker for review.', '#2d7dd2');
+        if (nextStatus === 'resubmitted')  showToast('🔄 Changes resubmitted for checker review.', '#f4a261');
+      });
+    }
+
+    board.appendChild(colEl);
+  });
+}
+
+// ========== MODEL CHECKER BOARD (dependency-aware) ==========
+function renderCheckerBoard() {
+  const board = document.getElementById('emp-scrum-board');
+  if (!board) return;
+  board.innerHTML = '';
+  const cols = ['To Check','Model Checked – Changes in Progress','Changes in Review','Model Done'];
+
+  cols.forEach(col => {
+    const colTasks = MODELING_TASKS.filter(t => CHECKER_COL[t.status] === col);
+    const colEl = document.createElement('div');
+    colEl.className = 'scrum-col';
+    colEl.dataset.col = col;
+    colEl.innerHTML = `<div class="scrum-col-header"><span>${col}</span><span class="count">${colTasks.length}</span></div>`;
+
+    colTasks.forEach(t => {
+      const canDrag         = !!CHECKER_DRAG_TRANSITIONS[t.status];
+      const isDone          = t.status === 'done';
+      const showActions     = t.status === 'checker-wip' || t.status === 'resubmitted';
+
+      const card = document.createElement('div');
+      card.className = 'task-card' + (isDone ? ' task-done-green' : '');
+      if (canDrag) { card.draggable = true; card.dataset.title = t.title; }
+
+      card.innerHTML = `
+        <div style="display:flex;align-items:flex-start;gap:4px;">
+          ${canDrag ? '<span class="drag-handle" title="Drag to start review">⠿</span>' : ''}
+          <div style="flex:1;">
+            <div class="tc-title">${t.title}</div>
+            <div class="tc-meta">
+              <span class="chip chip-blue" style="font-size:9px;">${t.phase}</span>
+              ${t.hours ? `<span>${t.hours}h logged</span>` : ''}
+              ${isDone ? '<span style="font-size:10px;color:#059669;font-weight:600;">✓ Approved</span>' : ''}
+              ${t.status==='resubmitted' ? '<span style="font-size:10px;color:#f4a261;font-weight:600;">↩ Changes applied</span>' : ''}
+            </div>
+            ${showActions ? `<div class="dep-actions">
+              <button class="btn btn-sm btn-success" onclick="checkerMarkDone('${t.title}')">✓ No Changes</button>
+              <button class="btn btn-sm btn-warn"    onclick="checkerSendBack('${t.title}')">↩ Request Changes</button>
+            </div>` : ''}
+          </div>
+        </div>`;
+
+      if (canDrag) {
+        card.addEventListener('dragstart', e => {
+          scrumDragTitle = t.title; scrumDragRole = 'Model Checker';
+          e.dataTransfer.effectAllowed = 'move';
+          setTimeout(() => card.classList.add('dragging'), 0);
+        });
+        card.addEventListener('dragend', () => {
+          card.classList.remove('dragging');
+          document.querySelectorAll('.scrum-col').forEach(c => c.classList.remove('col-drag-over'));
+        });
+      }
+      colEl.appendChild(card);
+    });
+
+    if (colTasks.length === 0) {
+      const hint = document.createElement('div');
+      hint.className = 'drop-hint';
+      hint.textContent = col === 'Model Checked – Changes in Progress' ? 'Drag task here to start review' : '—';
+      colEl.appendChild(hint);
+    }
+
+    // Checker only drags into "Model Checked – Changes in Progress"
+    if (col === 'Model Checked – Changes in Progress') {
+      colEl.addEventListener('dragover', e => { e.preventDefault(); colEl.classList.add('col-drag-over'); });
+      colEl.addEventListener('dragleave', e => { if (!colEl.contains(e.relatedTarget)) colEl.classList.remove('col-drag-over'); });
+      colEl.addEventListener('drop', e => {
+        e.preventDefault();
+        colEl.classList.remove('col-drag-over');
+        if (!scrumDragTitle || scrumDragRole !== 'Model Checker') return;
+        const task = MODELING_TASKS.find(t => t.title === scrumDragTitle);
+        if (!task) return;
+        const nextStatus = CHECKER_DRAG_TRANSITIONS[task.status];
+        if (!nextStatus) return;
+        task.status = nextStatus;
+        scrumDragTitle = null;
+        renderCheckerBoard();
+        showToast('🔍 Task taken for review.', '#2ec4b6');
+      });
+    }
+
+    board.appendChild(colEl);
+  });
+}
+
+function checkerMarkDone(title) {
+  const task = MODELING_TASKS.find(t => t.title === title);
+  if (!task) return;
+  task.status = 'done';
+  renderCheckerBoard();
+  showToast('✅ Task approved — No changes required. Modeler notified.', '#059669');
+}
+
+function checkerSendBack(title) {
+  const task = MODELING_TASKS.find(t => t.title === title);
+  if (!task) return;
+  task.status = 'changes-needed';
+  renderCheckerBoard();
+  showToast('↩ Changes requested — task sent back to Modeler.', '#f4a261');
+}
+
+// ========== TL BOARD ==========
+function renderTLBoard() {
+  const modEl = document.getElementById('tl-modeling-tasks');
+  const editEl = document.getElementById('tl-editing-tasks');
+  const checkEl = document.getElementById('tl-checking-tasks');
+  if (!modEl) return;
+
+  const modelingStatus = [
+    {title:'Wireframe – Phase I', assignee:'Arjun S.', status:'Done', pct:100},
+    {title:'Anchor Bolt – Phase I', assignee:'Priya K.', status:'Done', pct:100},
+    {title:'Foundation Embeds – Phase I', assignee:'Arjun S.', status:'In Review', pct:80},
+    {title:'Wireframe – Phase II', assignee:'Priya K.', status:'In Progress', pct:45},
+    {title:'Embeds – Phase II', assignee:'Unassigned', status:'Pending', pct:0},
+  ];
+  const editStatus = [
+    {title:'Plan Sheets – Phase I', assignee:'Meera V.', status:'Done', pct:100},
+    {title:'Detail Sheets – Phase I', assignee:'Meera V.', status:'In Review', pct:70},
+    {title:'Elevation – Phase I', assignee:'Unassigned', status:'Pending', pct:0},
+    {title:'Plan Sheets – Phase II', assignee:'Meera V.', status:'In Progress', pct:30},
+  ];
+  const checkStatus = [
+    {title:'Wireframe Check – Ph I', assignee:'Suresh P.', status:'Done', pct:100},
+    {title:'Anchor Bolt Check – Ph I', assignee:'Rahul N.', status:'Changes', pct:90},
+    {title:'Foundation Embeds Check', assignee:'Suresh P.', status:'In Review', pct:60},
+    {title:'Plan Sheets Check – Ph I', assignee:'Suresh P.', status:'Done', pct:100},
+  ];
+
+  const renderKanbanTasks = (arr) => arr.map(t => {
+    const sc = t.pct===100 ? 'success' : t.pct>50 ? '' : t.pct>0 ? 'warn' : 'danger';
+    return `<div class="task-card">
+      <div class="tc-title">${t.title}</div>
+      <div class="tc-meta">
+        <span>${t.assignee}</span>
+        <span class="chip ${t.status==='Done'?'chip-green':t.status==='In Progress'?'chip-blue':t.status==='In Review'?'chip-yellow':'chip-gray'}" style="font-size:9px;">${t.status}</span>
+      </div>
+      <div class="progress-bar" style="margin-top:6px;"><div class="fill ${sc}" style="width:${t.pct}%;"></div></div>
+    </div>`;
+  }).join('');
+
+  modEl.innerHTML = renderKanbanTasks(modelingStatus);
+  editEl.innerHTML = renderKanbanTasks(editStatus);
+  checkEl.innerHTML = renderKanbanTasks(checkStatus);
+
+  // Workload
+  const wlEl = document.getElementById('tl-workload-cols');
+  if (wlEl) {
+    wlEl.innerHTML = CORE_TEAM.map(m => {
+      const w = m.tasks > 4 ? 'danger' : m.tasks > 2 ? 'warn' : 'success';
+      return `<div class="workload-member">
+        <div class="wm-name"><div class="av" style="background:${m.color};display:inline-flex;width:22px;height:22px;font-size:10px;">${m.initials}</div> ${m.name}</div>
+        <div class="wm-tasks">${m.tasks} active tasks · ${m.role}</div>
+        <div class="progress-bar"><div class="fill ${w}" style="width:${Math.min(m.tasks/6*100,100)}%;"></div></div>
+      </div>`;
+    }).join('');
+  }
+}
+
+// ========== PACKAGES ==========
+function renderPackages() {
+  const el = document.getElementById('pkg-list');
+  if (!el) return;
+  el.innerHTML = PACKAGES.map(p => {
+    const s = p.stages;
+    return `<div class="pkg-card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div>
+          <h5>${p.name}</h5>
+          <div style="font-size:11px;color:var(--muted);">${p.desc}</div>
+          <div style="margin-top:6px;">${p.phases.map(ph=>`<span class="chip chip-blue" style="font-size:10px;margin-right:4px;">${ph}</span>`).join('')}</div>
+        </div>
+      </div>
+      <div class="pkg-stages">
+        <span class="pkg-stage ifa ${s.ifa==='done'?'done':s.ifa==='active'?'ifa':'pending'}">IFA ${s.ifa==='done'?'✓':s.ifa==='active'?'⟳':'—'}</span>
+        <span class="pkg-stage bfa ${s.bfa==='done'?'done':s.bfa==='active'?'bfa':'pending'}">BFA ${s.bfa==='done'?'✓':s.bfa==='active'?'⟳':'—'}</span>
+        <span class="pkg-stage rnr ${s.rnr==='done'?'done':s.rnr==='active'?'rnr':'pending'}">R&R ${s.rnr==='done'?'✓':s.rnr==='active'?'⟳':'—'}</span>
+        <span class="pkg-stage ifc ${s.ifc==='done'?'done':s.ifc==='active'?'ifc':'pending'}">IFC ${s.ifc==='done'?'✓':s.ifc==='active'?'⟳':'—'}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ========== RFI ==========
+function renderRFI() {
+  const el = document.getElementById('rfi-list');
+  const holdEl = document.getElementById('rfi-hold-list');
+  if (!el) return;
+  el.innerHTML = RFIS.map(r => `
+    <div class="rfi-card">
+      <div class="rfi-header">
+        <h5>${r.id} — ${r.desc}</h5>
+        <span class="chip ${r.status==='Open'?'chip-red':'chip-yellow'}">${r.status}</span>
+      </div>
+      <div style="font-size:11px;color:var(--muted);display:flex;gap:16px;flex-wrap:wrap;">
+        <span>📍 Phase: ${r.phase}</span>
+        <span>🔧 Task: ${r.task}</span>
+        <span>📦 Package: ${r.package}</span>
+        <span>📅 Sent: ${r.date}</span>
+      </div>
+      <div style="margin-top:10px;display:flex;gap:8px;">
+        <button class="btn btn-sm btn-secondary">Assign to Task</button>
+        <button class="btn btn-sm btn-success" onclick="closeRFI('${r.id}')">Mark Resolved</button>
+      </div>
+    </div>`).join('');
+  if (holdEl) {
+    holdEl.innerHTML = `<div class="rfi-card"><h5>ABM Package</h5><div style="font-size:11px;color:var(--muted);">Held by RFI-001</div></div>
+    <div class="rfi-card"><h5>Phase II Main Steel</h5><div style="font-size:11px;color:var(--muted);">Held by RFI-002</div></div>`;
+  }
+}
+function closeRFI(id) {
+  const idx = RFIS.findIndex(r => r.id === id);
+  if (idx !== -1) { RFIS.splice(idx, 1); renderRFI(); }
+}
+function openRFIModal() { document.getElementById('modal-rfi').classList.add('open'); }
+function addRFI() { closeModal('modal-rfi'); }
+
+// ========== WEIGHTAGE ==========
+function renderWeightage() {
+  const tasks1 = ['Wireframe','Anchor Bolt','Foundation Embeds','Embeds','Secondary Structural Steel','Connections','Plan Sheets','Detail Sheets','Wireframe Check','Anchor Bolt Check'];
+  const tasks2 = ['Wireframe','Anchor Bolt','Secondary Structural Steel','Connections','Plan Sheets','Detail Sheets','Elevation'];
+  const hrs1 = [42,36,28,32,48,55,28,24,18,15];
+  const hrs2 = [38,30,44,52,22,20,18];
+
+  function buildList(elId, tasks, hrs) {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    el.innerHTML = tasks.map((t,i) => `
+      <div class="weightage-row">
+        <div class="task-name">${t}</div>
+        <div class="assignee">${CORE_TEAM[i % CORE_TEAM.length].name.split(' ')[0]}</div>
+        <input type="number" value="${hrs[i]}" min="0" max="500" onchange="updateTotal()" style="width:70px;">
+        <span style="font-size:11px;color:var(--muted);">hrs</span>
+        <div class="progress-bar" style="width:100px;"><div class="fill" style="width:${Math.min(hrs[i]/80*100,100)}%;"></div></div>
+      </div>`).join('');
+  }
+  buildList('weightage-list-1', tasks1, hrs1);
+  buildList('weightage-list-2', tasks2, hrs2);
+  updateTotal();
+}
+
+function updateTotal() {
+  let total = 0;
+  document.querySelectorAll('#screen-weightage input[type=number]').forEach(inp => total += parseInt(inp.value)||0);
+  const el = document.getElementById('total-allocated');
+  const fill = document.getElementById('weightage-fill');
+  const pct = document.getElementById('weightage-pct');
+  if (el) el.textContent = total;
+  const p = Math.min(total/2400*100, 100);
+  if (fill) fill.style.width = p+'%';
+  if (pct) pct.textContent = Math.round(p)+'%';
+}
+
+// ========== MODALS ==========
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function openCreateTaskModal() { document.getElementById('modal-create-task').classList.add('open'); }
+function submitCustomTask() { closeModal('modal-create-task'); alert('Task submitted for TL approval. It will appear on your board once approved.'); }
+
+// ========== APPROVALS ==========
+function approveRequest(btn) {
+  const row = btn.closest('tr');
+  row.style.background = '#f0fdf4';
+  btn.parentElement.innerHTML = '<span class="chip chip-green">✓ Approved</span>';
+}
+function rejectRequest(btn) {
+  const row = btn.closest('tr');
+  row.style.background = '#fff1f2';
+  btn.parentElement.innerHTML = '<span class="chip chip-red">✕ Rejected</span>';
+}
+
+// ========== PROJECT SAVE ==========
+function saveProject() {
+  const name = document.getElementById('proj-name').value;
+  if (!name) { alert('Please enter a project name'); return; }
+  showScreen('task-assign');
+}
+
+// Close modals on overlay click
+document.querySelectorAll('.modal-overlay').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); });
+});
+</script>
+</body>
+</html>
