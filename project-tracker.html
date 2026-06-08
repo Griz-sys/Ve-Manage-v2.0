@@ -856,10 +856,11 @@
     <div id="screen-approvals" class="screen">
       <div class="page-header">
         <h1>Pending Approvals</h1>
-        <p>SPM view — approve team member requests and custom tasks</p>
+        <p id="approvals-subtitle"></p>
       </div>
 
-      <div class="card">
+      <!-- SPM-only: External Member Requests -->
+      <div class="card" id="card-ext-member-requests" style="display:none;">
         <div class="card-title">👥 External Member Requests <span class="badge">2 Pending</span></div>
         <table>
           <thead><tr><th>Member</th><th>Requested For</th><th>Project</th><th>Reason</th><th>Requested By</th><th>Actions</th></tr></thead>
@@ -1686,6 +1687,15 @@ function showScreen(id) {
   if (id === 'packages') renderPackagesScreen();
   if (id === 'project-list') renderProjectList();
   if (id === 'employee-board') populateEmpProjectDropdown();
+  if (id === 'approvals') {
+    const isSPM = currentRole === 'spm';
+    const extCard = document.getElementById('card-ext-member-requests');
+    const subtitle = document.getElementById('approvals-subtitle');
+    if (extCard) extCard.style.display = isSPM ? 'block' : 'none';
+    if (subtitle) subtitle.textContent = isSPM
+      ? 'SPM view — approve external member requests and custom tasks'
+      : 'TL view — approve custom task requests from your team';
+  }
 }
 
 function switchTab(tabEl, containerId, targetId) {
