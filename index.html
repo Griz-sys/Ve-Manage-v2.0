@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SOLOne - Project Task Tracker</title>
+<title>Ve Manage – Project Task Tracker</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root {
     --primary: #1a3c5e;
@@ -256,6 +257,13 @@
   /* HIGHLIGHT */
   .highlight { background: #fffbeb; border-left: 3px solid var(--warn); padding: 8px 12px; border-radius: 0 6px 6px 0; margin-bottom: 10px; font-size: 12px; }
 
+  /* DEPENDENCY TASK STATES */
+  .task-card.task-grayed { opacity: 0.55; background: #f3f4f6; border-color: #d1d5db; cursor: default; }
+  .task-card.task-grayed .tc-title { color: #6b7280; }
+  .task-card.task-done-green { border-color: #6ee7b7; background: #f0fdf4; }
+  .task-card.task-done-green .tc-title { color: #065f46; }
+  .dep-actions { display:flex; gap:6px; margin-top:8px; }
+
   /* SCROLLBAR */
   ::-webkit-scrollbar { width: 5px; height: 5px; }
   ::-webkit-scrollbar-track { background: transparent; }
@@ -276,7 +284,7 @@
 
 <!-- SIDEBAR -->
 <nav id="sidebar">
-  <div class="logo">SOL<span>One</span></div>
+  <div class="logo">Ve<span>Manage</span></div>
   <nav id="sidebar-nav">
     <!-- rendered by JS based on role -->
   </nav>
@@ -327,7 +335,7 @@
           </div>
           <div class="form-group">
             <label>Project Code</label>
-            <input type="text" id="proj-code" placeholder="e.g. SOL-2024-TSMC" value="SOL-2025-TSMC18">
+            <input type="text" id="proj-code" placeholder="e.g. VM-2024-TSMC" value="VM-2025-TSMC18">
           </div>
           <div class="form-group">
             <label>Project Type</label>
@@ -519,7 +527,7 @@
         </div>
         <div style="display:flex;gap:8px;align-items:center;">
           <div style="font-size:13px;">Allocated: <strong id="total-allocated" style="color:var(--success);">0</strong> / 2400 hrs</div>
-          <button class="btn btn-primary">✅ Finalize & Generate Packages</button>
+          <button class="btn btn-primary" onclick="finalizeProject()">✅ Finalize & Create Project</button>
         </div>
       </div>
 
@@ -548,44 +556,27 @@
     <div id="screen-project-list" class="screen">
       <div class="page-header">
         <h1>All Projects</h1>
-        <button class="btn btn-primary" onclick="showScreen('project-create')">+ New Project</button>
+        <button class="btn btn-primary" onclick="startNewProject()">+ New Project</button>
       </div>
       <div class="card">
         <table>
           <thead><tr>
-            <th>Project</th><th>Client</th><th>Phases</th><th>IFA Date</th><th>Progress</th><th>Status</th><th>Actions</th>
+            <th>Project</th><th>Client</th><th>IFA Date</th><th>Manhours</th><th>Progress</th><th>Status</th><th>Actions</th>
           </tr></thead>
-          <tbody>
-            <tr>
-              <td><strong>TSMC Fab 18</strong><br><span style="font-size:10px;color:var(--muted);">SOL-2025-TSMC18</span></td>
-              <td>TSMC Corporation</td>
-              <td>4 phases</td>
-              <td>Sep 15, 2025</td>
-              <td><div class="progress-bar"><div class="fill" style="width:38%;"></div></div><span style="font-size:10px;color:var(--muted);">38%</span></td>
-              <td><span class="chip chip-blue">In Progress</span></td>
-              <td><button class="btn btn-sm btn-secondary" onclick="showScreen('tl-board')">View</button></td>
-            </tr>
-            <tr>
-              <td><strong>Intel Hillsboro</strong><br><span style="font-size:10px;color:var(--muted);">SOL-2024-INTL</span></td>
-              <td>Intel Corporation</td>
-              <td>3 phases</td>
-              <td>Mar 10, 2025</td>
-              <td><div class="progress-bar"><div class="fill success" style="width:92%;"></div></div><span style="font-size:10px;color:var(--muted);">92%</span></td>
-              <td><span class="chip chip-green">Near IFC</span></td>
-              <td><button class="btn btn-sm btn-secondary">View</button></td>
-            </tr>
-            <tr>
-              <td><strong>Samsung Austin II</strong><br><span style="font-size:10px;color:var(--muted);">SOL-2025-SAM</span></td>
-              <td>Samsung Electronics</td>
-              <td>5 phases</td>
-              <td>Dec 01, 2025</td>
-              <td><div class="progress-bar"><div class="fill warn" style="width:12%;"></div></div><span style="font-size:10px;color:var(--muted);">12%</span></td>
-              <td><span class="chip chip-yellow">Planning</span></td>
-              <td><button class="btn btn-sm btn-secondary">View</button></td>
-            </tr>
+          <tbody id="project-list-tbody">
+            <tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px;">Loading projects…</td></tr>
           </tbody>
         </table>
       </div>
+    </div>
+
+    <!-- ==================== SCREEN: PACKAGES ==================== -->
+    <div id="screen-packages" class="screen">
+      <div class="page-header">
+        <h1>Project Packages</h1>
+        <p>Manage delivery packages and their IFA / BFA / IFC stages</p>
+      </div>
+      <div id="packages-screen-list"></div>
     </div>
 
     <!-- ==================== SCREEN: EMPLOYEE BOARD ==================== -->
@@ -593,11 +584,22 @@
       <div class="page-header">
         <div>
           <h1>My Task Board</h1>
-          <p>Project: TSMC Fab 18 — Role: <strong id="emp-role-display">Modeler</strong></p>
+          <p>Role: <strong id="emp-role-display">Modeler</strong></p>
         </div>
         <div style="display:flex;gap:8px;align-items:center;">
           <div>Active Timer: <span class="clock" id="live-clock">00:00:00</span></div>
           <button class="btn btn-secondary btn-sm" onclick="openCreateTaskModal()">+ Create Task</button>
+        </div>
+      </div>
+
+      <!-- Project selector for employee -->
+      <div class="card" style="margin-bottom:14px;padding:12px 16px;">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <span style="font-size:12px;font-weight:600;color:var(--muted);">📁 Viewing Project:</span>
+          <select id="emp-project-select" onchange="empSwitchProject(this.value)" style="min-width:220px;font-weight:600;">
+            <option value="">— Select a project —</option>
+          </select>
+          <span id="emp-project-role-chip" class="chip chip-blue" style="display:none;"></span>
         </div>
       </div>
 
@@ -701,7 +703,7 @@
         </div>
       </div>
       <div class="tabs">
-        <div class="tab active" onclick="switchTab(this,'psr-tabs','psr-internal')">Internal SOL PSR</div>
+        <div class="tab active" onclick="switchTab(this,'psr-tabs','psr-internal')">Internal Ve Manage PSR</div>
         <div class="tab" onclick="switchTab(this,'psr-tabs','psr-client')">Client-Facing PSR</div>
       </div>
       <div id="psr-tabs">
@@ -854,10 +856,11 @@
     <div id="screen-approvals" class="screen">
       <div class="page-header">
         <h1>Pending Approvals</h1>
-        <p>SPM view — approve team member requests and custom tasks</p>
+        <p id="approvals-subtitle"></p>
       </div>
 
-      <div class="card">
+      <!-- SPM-only: External Member Requests -->
+      <div class="card" id="card-ext-member-requests" style="display:none;">
         <div class="card-title">👥 External Member Requests <span class="badge">2 Pending</span></div>
         <table>
           <thead><tr><th>Member</th><th>Requested For</th><th>Project</th><th>Reason</th><th>Requested By</th><th>Actions</th></tr></thead>
@@ -1031,6 +1034,144 @@
 </div>
 
 <script>
+// ========== SUPABASE ==========
+const SUPABASE_URL = 'https://dbcaorbtcahxblhvalrd.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRiY2FvcmJ0Y2FoeGJsaHZhbHJkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5MDk1MTIsImV4cCI6MjA5NjQ4NTUxMn0.emh1I6mnUpyC3qjSxKcs3WT6_NNB6DzcIMf3WSrIj7Y';
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+let PROJECT_ID = null;
+
+async function loadData() {
+  // Test connection first
+  const { error: pingErr } = await db.from('projects').select('id').limit(1);
+  if (pingErr) {
+    console.warn('Supabase unavailable, using sample data:', pingErr.message);
+    DB_ONLINE = false;
+    return; // fall back to in-memory defaults
+  }
+  DB_ONLINE = true;
+
+  // Load or seed first project
+  let { data: projects } = await db.from('projects').select('*').order('created_at').limit(1);
+  if (!projects || projects.length === 0) {
+    await seedInitialData();
+    ({ data: projects } = await db.from('projects').select('*').order('created_at').limit(1));
+  }
+  if (!projects || projects.length === 0) { DB_ONLINE = false; return; }
+  PROJECT_ID = projects[0].id;
+
+  // Team members
+  const { data: members } = await db.from('team_members').select('*').eq('project_id', PROJECT_ID).order('created_at');
+  if (members && members.length) {
+    CORE_TEAM.length = 0;
+    members.forEach(m => CORE_TEAM.push({ id: m.id, name: m.name, role: m.role, grade: m.grade, tasks: 0, color: m.color, initials: m.initials }));
+  }
+
+  // Modeling tasks
+  const { data: tasks } = await db.from('tasks').select('*').eq('project_id', PROJECT_ID).eq('role', 'Modeling').order('created_at');
+  if (tasks && tasks.length) {
+    MODELING_TASKS.length = 0;
+    tasks.forEach(t => MODELING_TASKS.push({ id: t.id, title: t.name, phase: t.phase_name, status: t.status, timer: t.timer_active ? '00:00:01' : null, hours: t.hours_logged || 0 }));
+  }
+
+  // RFIs
+  const { data: rfis } = await db.from('rfis').select('*').eq('project_id', PROJECT_ID).order('created_at');
+  if (rfis && rfis.length) {
+    RFIS.length = 0;
+    rfis.forEach(r => RFIS.push({ id: r.rfi_number, dbId: r.id, desc: r.description, phase: r.phase, task: r.task_name, status: r.status, date: r.date_sent, package: r.package_name }));
+  }
+
+  // Packages
+  const { data: pkgs } = await db.from('packages').select('*').eq('project_id', PROJECT_ID).order('created_at');
+  if (pkgs && pkgs.length) {
+    PACKAGES.length = 0;
+    pkgs.forEach(p => PACKAGES.push({ dbId: p.id, name: p.name, desc: p.description, phases: p.phases || [], stages: { ifa: p.ifa_status, bfa: p.bfa_status, rnr: p.rnr_status, ifc: p.ifc_status } }));
+  }
+}
+
+async function persistTaskStatus(title, newStatus) {
+  if (!DB_ONLINE || !PROJECT_ID) return;
+  await db.from('tasks').update({ status: newStatus, updated_at: new Date().toISOString() })
+    .eq('project_id', PROJECT_ID).eq('name', title).eq('role', 'Modeling');
+}
+
+async function persistTimerStart(title) {
+  if (!DB_ONLINE || !PROJECT_ID) return;
+  await db.from('tasks').update({ timer_active: true, updated_at: new Date().toISOString() })
+    .eq('project_id', PROJECT_ID).eq('name', title);
+}
+
+async function persistTimerStop(title, extraSeconds) {
+  if (!DB_ONLINE || !PROJECT_ID) return;
+  const task = MODELING_TASKS.find(t => t.title === title);
+  const newHours = (task ? task.hours : 0) + (extraSeconds / 3600);
+  await db.from('tasks').update({ timer_active: false, hours_logged: newHours, updated_at: new Date().toISOString() })
+    .eq('project_id', PROJECT_ID).eq('name', title);
+}
+
+function subscribeRealtime() {
+  db.channel('tasks-live')
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tasks' }, payload => {
+      const u = payload.new;
+      if (u.role !== 'Modeling') return;
+      const task = MODELING_TASKS.find(t => t.id === u.id);
+      if (task) {
+        task.status = u.status;
+        task.hours = u.hours_logged;
+        if (currentEmpRole === 'Modeler')       renderModelerBoard();
+        if (currentEmpRole === 'Model Checker') renderCheckerBoard();
+      }
+    })
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'rfis' }, payload => {
+      const r = payload.new;
+      if (r.project_id !== PROJECT_ID) return;
+      RFIS.push({ id: r.rfi_number, dbId: r.id, desc: r.description, phase: r.phase, task: r.task_name, status: r.status, date: r.date_sent, package: r.package_name });
+      renderRFI();
+    })
+    .subscribe();
+}
+
+async function seedInitialData() {
+  const { data: proj, error: projErr } = await db.from('projects').insert({
+    name: 'TSMC Fab 18', client: 'TSMC Corporation', code: 'VM-2025-TSMC18',
+    start_date: '2025-07-01', ifa_date: '2025-09-15', bfa_date: '2025-10-30',
+    ifc_date: '2025-12-15', manhours_budget: 2400, priority: 'High'
+  }).select().single();
+  if (projErr || !proj) { console.error('Seed project insert failed:', projErr); throw projErr || new Error('null project'); }
+  const pid = proj.id;
+
+  await db.from('team_members').insert([
+    { project_id: pid, name: 'Arjun Sharma',  role: 'Modeler',          grade: 'G3', color: '#2d7dd2', initials: 'AS' },
+    { project_id: pid, name: 'Priya Kapoor',  role: 'Senior Modeler',   grade: 'G4', color: '#7c3aed', initials: 'PK' },
+    { project_id: pid, name: 'Meera Verma',   role: 'Editor',           grade: 'G3', color: '#e63946', initials: 'MV' },
+    { project_id: pid, name: 'Suresh Pillai', role: 'Erection Checker', grade: 'G4', color: '#059669', initials: 'SP' },
+    { project_id: pid, name: 'Rahul Nair',    role: 'Model Checker',    grade: 'G3', color: '#f4a261', initials: 'RN' },
+    { project_id: pid, name: 'Kavya Singh',   role: 'Shop Checker',     grade: 'G2', color: '#0891b2', initials: 'KS' },
+  ]);
+
+  await db.from('tasks').insert([
+    { project_id: pid, name: 'Wireframe – Phase I',         phase_name: 'Phase I',  role: 'Modeling', status: 'done',      hours_logged: 42 },
+    { project_id: pid, name: 'Anchor Bolt – Phase I',       phase_name: 'Phase I',  role: 'Modeling', status: 'done',      hours_logged: 36 },
+    { project_id: pid, name: 'Foundation Embeds – Phase I', phase_name: 'Phase I',  role: 'Modeling', status: 'in-review', hours_logged: 0  },
+    { project_id: pid, name: 'Wireframe – Phase II',        phase_name: 'Phase II', role: 'Modeling', status: 'modeling',  hours_logged: 0  },
+    { project_id: pid, name: 'Embeds – Phase II',           phase_name: 'Phase II', role: 'Modeling', status: 'to-model',  hours_logged: 0  },
+    { project_id: pid, name: 'Stairs',                      phase_name: 'Stairs',   role: 'Modeling', status: 'to-model',  hours_logged: 0  },
+  ]);
+
+  await db.from('rfis').insert([
+    { project_id: pid, rfi_number: 'RFI-001', description: 'Anchor bolt spacing clarification – Phase I NE corner', phase: 'Phase I', task_name: 'Anchor Bolt', status: 'Open', date_sent: '2025-05-28', package_name: 'ABM Package' },
+    { project_id: pid, rfi_number: 'RFI-002', description: 'Column base plate dimensions for Grid 4-7', phase: 'Phase II', task_name: 'Foundation Embeds', status: 'Pending Client', date_sent: '2025-06-01', package_name: 'Phase II Main Steel' },
+    { project_id: pid, rfi_number: 'RFI-003', description: 'Stair handrail connection detail missing from drawings', phase: 'Stairs', task_name: 'Stairs', status: 'Open', date_sent: '2025-06-04', package_name: 'None' },
+  ]);
+
+  await db.from('packages').insert([
+    { project_id: pid, name: 'ABM Package',        description: 'Includes Wireframe (all phases)',              phases: ['Phase I','Phase II','Phase III','Phase IV'], ifa_status: 'done',    bfa_status: 'pending', rnr_status: 'pending', ifc_status: 'pending' },
+    { project_id: pid, name: 'Phase I AnchorBolt', description: 'Anchor Bolt, Foundation Embeds + Erection Sheets', phases: ['Phase I'],                              ifa_status: 'done',    bfa_status: 'done',    rnr_status: 'pending', ifc_status: 'pending' },
+    { project_id: pid, name: 'Phase II Main Steel',description: 'Connections + Erection Sheets Phase II',       phases: ['Phase II'],                                 ifa_status: 'active',  bfa_status: 'pending', rnr_status: 'pending', ifc_status: 'pending' },
+    { project_id: pid, name: 'Phase III Main Steel',description:'Connections + Elevator Sheets',                phases: ['Phase III'],                                ifa_status: 'pending', bfa_status: 'pending', rnr_status: 'pending', ifc_status: 'pending' },
+    { project_id: pid, name: 'Phase IV Outer Steel',description:'Full Phase IV package',                        phases: ['Phase IV'],                                 ifa_status: 'pending', bfa_status: 'pending', rnr_status: 'pending', ifc_status: 'pending' },
+  ]);
+}
+
 // ========== STATE ==========
 const PHASES = ['Phase I','Phase II','Phase III','Phase IV'];
 const PHASE_NAMES = { 'Phase I':'Area A','Phase II':'Area C','Phase III':'Elevator Framing','Phase IV':'Outer Red Box' };
@@ -1087,34 +1228,71 @@ let timerSeconds = 0;
 let currentRole = 'tl';
 let phaseCount = 4;
 let addMemberType = 'core';
+let DB_ONLINE = false;
+let ALL_PROJECTS = [];
 
 const SCRUMB_BOARDS = {
   Modeler: ['To Model','Modeling in Progress','Model in Review','Model Checked – Changes in Progress','Model Done'],
   Editor: ['To Edit','Editing in Progress','Sheets in Review','Sheets Checked – Changes in Progress','Sheets Done'],
-  'Model Checker': ['Model in Review','Model Checked – Changes in Progress','Changes in Review','Model Done'],
+  'Model Checker': ['To Check','Model Checked – Changes in Progress','Changes in Review','Model Done'],
   'Erection Checker': ['Checking in Progress','Sheets Checked – Changes in Progress','Sheets Done'],
 };
 
+// ========== SHARED MODELING DEPENDENCY STATE ==========
+// Single source of truth — both Modeler and Model Checker boards read from here.
+const MODELING_TASKS = [
+  {title:'Wireframe – Phase I',         phase:'Phase I',  status:'done',      timer:null,       hours:42},
+  {title:'Anchor Bolt – Phase I',       phase:'Phase I',  status:'done',      timer:null,       hours:36},
+  {title:'Foundation Embeds – Phase I', phase:'Phase I',  status:'in-review', timer:null,       hours:0},
+  {title:'Wireframe – Phase II',        phase:'Phase II', status:'modeling',  timer:'01:24:07', hours:0},
+  {title:'Embeds – Phase II',           phase:'Phase II', status:'to-model',  timer:null,       hours:0},
+  {title:'Stairs',                      phase:'Stairs',   status:'to-model',  timer:null,       hours:0},
+];
+
+// Internal status → column label on Modeler's board
+const MODELER_COL = {
+  'to-model':       'To Model',
+  'modeling':       'Modeling in Progress',
+  'in-review':      'Model in Review',
+  'checker-active': 'Model in Review',
+  'checker-wip':    'Model Checked – Changes in Progress',
+  'changes-needed': 'Model Checked – Changes in Progress',
+  'resubmitted':    'Model in Review',
+  'done':           'Model Done',
+};
+
+// Internal status → column label on Checker's board
+const CHECKER_COL = {
+  'in-review':      'To Check',
+  'checker-active': 'Checking in Progress',
+  'checker-wip':    'Model Checked – Changes in Progress',
+  'changes-needed': 'Model Checked – Changes in Progress',
+  'resubmitted':    'Changes in Review',
+  'done':           'Model Done',
+};
+
+// Drag transitions allowed for Modeler (status → next status after drop)
+const MODELER_TRANSITIONS = {
+  'to-model':       'modeling',
+  'modeling':       'in-review',
+  'changes-needed': 'resubmitted',
+};
+
+// Drag transitions allowed for Checker (picking up into active review)
+const CHECKER_DRAG_TRANSITIONS = {
+  'in-review':   'checker-active',
+  'resubmitted': 'checker-active',
+};
+
 const SAMPLE_TASKS = {
-  Modeler: [
-    {title:'Wireframe – Phase I', phase:'Phase I', status:'Model Done', timer:null, hours:42},
-    {title:'Anchor Bolt – Phase I', phase:'Phase I', status:'Model Done', timer:null, hours:36},
-    {title:'Foundation Embeds – Phase I', phase:'Phase I', status:'Model in Review', timer:null, hours:0},
-    {title:'Wireframe – Phase II', phase:'Phase II', status:'Modeling in Progress', timer:'01:24:07', hours:0},
-    {title:'Embeds – Phase II', phase:'Phase II', status:'To Model', timer:null, hours:0},
-    {title:'Stairs', phase:'Stairs', status:'To Model', timer:null, hours:0},
-  ],
+  Modeler: [], // unused – Modeler board reads MODELING_TASKS directly
   Editor: [
     {title:'Plan Sheets – Phase I', phase:'Phase I', status:'Sheets Done', timer:null, hours:28},
     {title:'Detail Sheets – Phase I', phase:'Phase I', status:'Sheets in Review', timer:null, hours:0},
     {title:'Elevation – Phase I', phase:'Phase I', status:'To Edit', timer:null, hours:0},
     {title:'Plan Sheets – Phase II', phase:'Phase II', status:'Editing in Progress', timer:'00:47:32', hours:0},
   ],
-  'Model Checker': [
-    {title:'Wireframe Check – Phase I', phase:'Phase I', status:'Model Done', timer:null, hours:18},
-    {title:'Anchor Bolt Check – Phase I', phase:'Phase I', status:'Model Checked – Changes in Progress', timer:null, hours:0},
-    {title:'Foundation Embeds Check', phase:'Phase I', status:'Model in Review', timer:null, hours:0},
-  ],
+  'Model Checker': [], // unused – Checker board reads MODELING_TASKS directly
   'Erection Checker': [
     {title:'Plan Sheets Check – Phase I', phase:'Phase I', status:'Sheets Done', timer:null, hours:22},
     {title:'Detail Sheets Check – Phase I', phase:'Phase I', status:'Checking in Progress', timer:'00:12:44', hours:0},
@@ -1148,8 +1326,265 @@ function showToast(msg, color) {
   }, 3200);
 }
 
+// ========== DEMO DATA ==========
+async function seedDemoData() {
+  if (!DB_ONLINE) return;
+  const { data: existing } = await db.from('projects').select('id');
+  if (existing && existing.length >= 4) return; // already seeded
+
+  const demos = [
+    {
+      proj: { name:'Intel Hillsboro', client:'Intel Corporation', code:'VM-2024-INTL', start_date:'2024-03-01', ifa_date:'2025-03-10', bfa_date:'2025-05-01', ifc_date:'2025-07-15', manhours_budget:3200, priority:'High', status:'Near IFC' },
+      members: [
+        { name:'Vikram Desai',   role:'Senior Modeler',   grade:'G5', color:'#7c3aed', initials:'VD' },
+        { name:'Anjali Menon',   role:'Editor',           grade:'G4', color:'#e63946', initials:'AM' },
+        { name:'Kiran Bose',     role:'Model Checker',    grade:'G4', color:'#2ec4b6', initials:'KB' },
+        { name:'Deepa Nair',     role:'Erection Checker', grade:'G3', color:'#059669', initials:'DN' },
+        { name:'Rohit Sharma',   role:'Modeler',          grade:'G3', color:'#f4a261', initials:'RS' },
+      ],
+      tasks: [
+        { name:'Wireframe – Phase I',          phase_name:'Phase I',  status:'done',      hours_logged:52 },
+        { name:'Anchor Bolt – Phase I',         phase_name:'Phase I',  status:'done',      hours_logged:44 },
+        { name:'Foundation Embeds – Phase I',   phase_name:'Phase I',  status:'done',      hours_logged:38 },
+        { name:'Connections – Phase I',         phase_name:'Phase I',  status:'done',      hours_logged:60 },
+        { name:'Wireframe – Phase II',          phase_name:'Phase II', status:'done',      hours_logged:48 },
+        { name:'Anchor Bolt – Phase II',        phase_name:'Phase II', status:'done',      hours_logged:40 },
+        { name:'Connections – Phase II',        phase_name:'Phase II', status:'in-review', hours_logged:0  },
+        { name:'Secondary Steel – Phase II',    phase_name:'Phase II', status:'modeling',  hours_logged:0  },
+        { name:'Wireframe – Phase III',         phase_name:'Phase III',status:'to-model',  hours_logged:0  },
+      ],
+      rfis: [],
+      packages: [
+        { name:'Phase I Full Package',    description:'All Phase I steel + sheets', phases:['Phase I'],           ifa_status:'done',  bfa_status:'done',   rnr_status:'done',   ifc_status:'active' },
+        { name:'Phase II Main Steel',     description:'Phase II framing & connections',phases:['Phase II'],       ifa_status:'done',  bfa_status:'active', rnr_status:'pending',ifc_status:'pending' },
+        { name:'Phase III Elevator Core', description:'Elevator shaft steel',       phases:['Phase III'],         ifa_status:'pending',bfa_status:'pending',rnr_status:'pending',ifc_status:'pending' },
+      ],
+    },
+    {
+      proj: { name:'Samsung Austin II', client:'Samsung Electronics', code:'VM-2025-SAM', start_date:'2025-04-15', ifa_date:'2025-12-01', bfa_date:'2026-02-01', ifc_date:'2026-05-15', manhours_budget:4800, priority:'Medium', status:'Planning' },
+      members: [
+        { name:'Preethi Iyer',   role:'Senior Modeler',   grade:'G4', color:'#2d7dd2', initials:'PI' },
+        { name:'Manish Kumar',   role:'Modeler',          grade:'G3', color:'#a855f7', initials:'MK' },
+        { name:'Sonal Shah',     role:'Editor',           grade:'G3', color:'#e63946', initials:'SS' },
+        { name:'Arun Pillai',    role:'Model Checker',    grade:'G3', color:'#059669', initials:'AP' },
+      ],
+      tasks: [
+        { name:'Wireframe – Phase I',          phase_name:'Phase I',  status:'modeling',  hours_logged:0  },
+        { name:'Anchor Bolt – Phase I',         phase_name:'Phase I',  status:'to-model',  hours_logged:0  },
+        { name:'Foundation Embeds – Phase I',   phase_name:'Phase I',  status:'to-model',  hours_logged:0  },
+        { name:'Wireframe – Phase II',          phase_name:'Phase II', status:'to-model',  hours_logged:0  },
+        { name:'Connections – Phase II',        phase_name:'Phase II', status:'to-model',  hours_logged:0  },
+        { name:'Wireframe – Phase III',         phase_name:'Phase III',status:'to-model',  hours_logged:0  },
+        { name:'Wireframe – Phase IV',          phase_name:'Phase IV', status:'to-model',  hours_logged:0  },
+        { name:'Secondary Steel – Phase I',     phase_name:'Phase I',  status:'to-model',  hours_logged:0  },
+      ],
+      rfis: [
+        { rfi_number:'RFI-001', description:'Grid line discrepancy on Phase I drawings', phase:'Phase I', task_name:'Wireframe – Phase I', status:'Open', date_sent:'2025-06-01', package_name:'None' },
+      ],
+      packages: [
+        { name:'Phase I IFA Package',  description:'Phase I full steel',    phases:['Phase I'],  ifa_status:'pending',bfa_status:'pending',rnr_status:'pending',ifc_status:'pending' },
+        { name:'Phase II IFA Package', description:'Phase II main steel',   phases:['Phase II'], ifa_status:'pending',bfa_status:'pending',rnr_status:'pending',ifc_status:'pending' },
+      ],
+    },
+    {
+      proj: { name:'NVIDIA Santa Clara', client:'NVIDIA Corporation', code:'VM-2025-NVD', start_date:'2025-05-01', ifa_date:'2025-11-15', bfa_date:'2026-01-30', ifc_date:'2026-04-01', manhours_budget:2800, priority:'High', status:'In Progress' },
+      members: [
+        { name:'Arjun Mehta',    role:'Senior Modeler',   grade:'G5', color:'#0891b2', initials:'AM' },
+        { name:'Divya Krishnan', role:'Modeler',          grade:'G3', color:'#7c3aed', initials:'DK' },
+        { name:'Sameer Joshi',   role:'Editor',           grade:'G3', color:'#f4a261', initials:'SJ' },
+        { name:'Pooja Reddy',    role:'Model Checker',    grade:'G4', color:'#2ec4b6', initials:'PR' },
+        { name:'Naresh Babu',    role:'Erection Checker', grade:'G3', color:'#059669', initials:'NB' },
+        { name:'Leena Thomas',   role:'Shop Checker',     grade:'G2', color:'#e63946', initials:'LT' },
+      ],
+      tasks: [
+        { name:'Wireframe – Phase I',        phase_name:'Phase I',  status:'done',         hours_logged:46 },
+        { name:'Anchor Bolt – Phase I',       phase_name:'Phase I',  status:'done',         hours_logged:38 },
+        { name:'Foundation Embeds – Phase I', phase_name:'Phase I',  status:'checker-active',hours_logged:0 },
+        { name:'Connections – Phase I',       phase_name:'Phase I',  status:'in-review',    hours_logged:0  },
+        { name:'Secondary Steel – Phase I',   phase_name:'Phase I',  status:'modeling',     hours_logged:0  },
+        { name:'Wireframe – Phase II',        phase_name:'Phase II', status:'to-model',     hours_logged:0  },
+        { name:'Anchor Bolt – Phase II',      phase_name:'Phase II', status:'to-model',     hours_logged:0  },
+      ],
+      rfis: [
+        { rfi_number:'RFI-001', description:'Anchor bolt pattern clarification – Grid B4 to B8', phase:'Phase I', task_name:'Anchor Bolt – Phase I', status:'Open', date_sent:'2025-05-20', package_name:'ABM Package' },
+        { rfi_number:'RFI-002', description:'Column splice elevation conflict at Level 3', phase:'Phase I', task_name:'Connections – Phase I', status:'Pending Client', date_sent:'2025-06-03', package_name:'Phase I Main Steel' },
+      ],
+      packages: [
+        { name:'ABM Package',          description:'All Wireframe + Anchor Bolt', phases:['Phase I','Phase II'], ifa_status:'done',   bfa_status:'pending',rnr_status:'pending',ifc_status:'pending' },
+        { name:'Phase I Main Steel',   description:'Connections + Erection Sheets',phases:['Phase I'],           ifa_status:'active', bfa_status:'pending',rnr_status:'pending',ifc_status:'pending' },
+        { name:'Phase II Steel',       description:'Full Phase II package',        phases:['Phase II'],          ifa_status:'pending',bfa_status:'pending',rnr_status:'pending',ifc_status:'pending' },
+      ],
+    },
+  ];
+
+  for (const d of demos) {
+    const { data: proj, error } = await db.from('projects').insert(d.proj).select().single();
+    if (error || !proj) { console.error('Demo seed error:', error); continue; }
+    const pid = proj.id;
+    if (d.members.length) await db.from('team_members').insert(d.members.map(m => ({ ...m, project_id: pid })));
+    if (d.tasks.length)   await db.from('tasks').insert(d.tasks.map(t => ({ ...t, project_id: pid, role: 'Modeling' })));
+    if (d.rfis.length)    await db.from('rfis').insert(d.rfis.map(r => ({ ...r, project_id: pid })));
+    if (d.packages.length)await db.from('packages').insert(d.packages.map(p => ({ ...p, project_id: pid })));
+  }
+}
+
+// ========== PROJECT LIST ==========
+async function renderProjectList() {
+  const tbody = document.getElementById('project-list-tbody');
+  if (!tbody) return;
+
+  if (!DB_ONLINE) {
+    tbody.innerHTML = ALL_PROJECTS.map(p => projectRow(p)).join('') ||
+      '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px;">No projects loaded.</td></tr>';
+    return;
+  }
+
+  const { data: projects } = await db.from('projects').select('*').order('created_at');
+  ALL_PROJECTS = projects || [];
+
+  if (!ALL_PROJECTS.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px;">No projects yet.</td></tr>';
+    return;
+  }
+
+  // Compute per-project task progress
+  const { data: allTasks } = await db.from('tasks').select('project_id,status').eq('role','Modeling');
+  const taskMap = {};
+  (allTasks || []).forEach(t => {
+    if (!taskMap[t.project_id]) taskMap[t.project_id] = { total:0, done:0 };
+    taskMap[t.project_id].total++;
+    if (t.status === 'done') taskMap[t.project_id].done++;
+  });
+
+  tbody.innerHTML = ALL_PROJECTS.map(p => {
+    const tm = taskMap[p.id] || { total:1, done:0 };
+    const pct = Math.round((tm.done / tm.total) * 100);
+    const fillClass = pct >= 80 ? 'success' : pct >= 30 ? '' : 'warn';
+    const statusChip = p.status === 'Near IFC' ? 'chip-green' : p.status === 'Planning' ? 'chip-yellow' : p.status === 'In Progress' ? 'chip-blue' : 'chip-gray';
+    const ifaStr = p.ifa_date ? new Date(p.ifa_date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—';
+    const activeClass = p.id === PROJECT_ID ? 'style="background:#f0f9ff;"' : '';
+    return `<tr ${activeClass}>
+      <td><strong>${p.name}</strong>${p.id === PROJECT_ID ? ' <span class="chip chip-blue" style="font-size:9px;">Active</span>' : ''}<br><span style="font-size:10px;color:var(--muted);">${p.code || ''}</span></td>
+      <td>${p.client || '—'}</td>
+      <td>${ifaStr}</td>
+      <td>${(p.manhours_budget||0).toLocaleString()} hrs</td>
+      <td><div class="progress-bar"><div class="fill ${fillClass}" style="width:${pct}%;"></div></div><span style="font-size:10px;color:var(--muted);">${pct}%</span></td>
+      <td><span class="chip ${statusChip}">${p.status||'In Progress'}</span></td>
+      <td><button class="btn btn-sm btn-${p.id===PROJECT_ID?'primary':'secondary'}" onclick="setActiveProject('${p.id}')">
+        ${p.id===PROJECT_ID?'✓ Active':'Switch'}
+      </button></td>
+    </tr>`;
+  }).join('');
+}
+
+async function setActiveProject(id) {
+  if (id === PROJECT_ID) { showScreen('tl-board'); return; }
+  showLoadingOverlay(true);
+  PROJECT_ID = id;
+
+  const { data: members } = await db.from('team_members').select('*').eq('project_id',PROJECT_ID).order('created_at');
+  CORE_TEAM.length = 0;
+  (members||[]).forEach(m => CORE_TEAM.push({ id:m.id, name:m.name, role:m.role, grade:m.grade, tasks:0, color:m.color, initials:m.initials }));
+
+  const { data: tasks } = await db.from('tasks').select('*').eq('project_id',PROJECT_ID).eq('role','Modeling').order('created_at');
+  MODELING_TASKS.length = 0;
+  (tasks||[]).forEach(t => MODELING_TASKS.push({ id:t.id, title:t.name, phase:t.phase_name, status:t.status, timer:t.timer_active?'00:00:01':null, hours:t.hours_logged||0 }));
+
+  const { data: rfis } = await db.from('rfis').select('*').eq('project_id',PROJECT_ID).order('created_at');
+  RFIS.length = 0;
+  (rfis||[]).forEach(r => RFIS.push({ id:r.rfi_number, dbId:r.id, desc:r.description, phase:r.phase, task:r.task_name, status:r.status, date:r.date_sent, package:r.package_name }));
+
+  const { data: pkgs } = await db.from('packages').select('*').eq('project_id',PROJECT_ID).order('created_at');
+  PACKAGES.length = 0;
+  (pkgs||[]).forEach(p => PACKAGES.push({ dbId:p.id, name:p.name, desc:p.description, phases:p.phases||[], stages:{ ifa:p.ifa_status, bfa:p.bfa_status, rnr:p.rnr_status, ifc:p.ifc_status } }));
+
+  showLoadingOverlay(false);
+  renderCoreTeam(); renderTeamInventory(); renderEmpBoard(currentEmpRole);
+  renderTLBoard(); renderPackages(); renderRFI();
+  renderProjectList();
+  showScreen('tl-board');
+  const proj = ALL_PROJECTS.find(p => p.id === PROJECT_ID);
+  showToast(`📁 Switched to ${proj?.name || 'project'}`, '#2d7dd2');
+}
+
+// ========== EMPLOYEE PROJECT DROPDOWN ==========
+async function populateEmpProjectDropdown() {
+  const sel = document.getElementById('emp-project-select');
+  if (!sel) return;
+  let projects = ALL_PROJECTS;
+  if (!projects.length && DB_ONLINE) {
+    const { data } = await db.from('projects').select('*').order('created_at');
+    projects = data || [];
+    ALL_PROJECTS = projects;
+  }
+  sel.innerHTML = '<option value="">— Select a project —</option>' +
+    projects.map(p => `<option value="${p.id}" ${p.id===PROJECT_ID?'selected':''}>${p.name} (${p.code||''})</option>`).join('');
+  if (PROJECT_ID && projects.length) {
+    sel.value = PROJECT_ID;
+    const chip = document.getElementById('emp-project-role-chip');
+    if (chip) { chip.textContent = 'Modeler'; chip.style.display='inline-flex'; }
+  }
+}
+
+async function empSwitchProject(projectId) {
+  if (!projectId || projectId === PROJECT_ID) return;
+  showLoadingOverlay(true);
+  PROJECT_ID = projectId;
+  const { data: tasks } = await db.from('tasks').select('*').eq('project_id', PROJECT_ID).eq('role','Modeling').order('created_at');
+  MODELING_TASKS.length = 0;
+  (tasks||[]).forEach(t => MODELING_TASKS.push({ id:t.id, title:t.name, phase:t.phase_name, status:t.status, timer:t.timer_active?'00:00:01':null, hours:t.hours_logged||0 }));
+  const { data: members } = await db.from('team_members').select('*').eq('project_id',PROJECT_ID).order('created_at');
+  CORE_TEAM.length = 0;
+  (members||[]).forEach(m => CORE_TEAM.push({ id:m.id, name:m.name, role:m.role, grade:m.grade, tasks:0, color:m.color, initials:m.initials }));
+  showLoadingOverlay(false);
+  const proj = ALL_PROJECTS.find(p=>p.id===PROJECT_ID);
+  const chip = document.getElementById('emp-project-role-chip');
+  if (chip) { chip.textContent = 'Modeler'; chip.style.display='inline-flex'; }
+  renderEmpBoard(currentEmpRole);
+  showToast(`📁 Switched to ${proj?.name||'project'}`, '#2d7dd2');
+}
+
+// ========== PACKAGES SCREEN ==========
+function renderPackagesScreen() {
+  const el = document.getElementById('packages-screen-list');
+  if (!el) return;
+  if (!PACKAGES.length) {
+    el.innerHTML = '<div class="card"><p style="color:var(--muted);text-align:center;padding:24px;">No packages for this project yet. Packages are created during project setup.</p></div>';
+    return;
+  }
+  el.innerHTML = PACKAGES.map(p => {
+    const s = p.stages;
+    return `<div class="pkg-card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div>
+          <h5>${p.name}</h5>
+          <div style="font-size:11px;color:var(--muted);">${p.desc||''}</div>
+          <div style="margin-top:6px;">${(p.phases||[]).map(ph=>`<span class="chip chip-blue" style="font-size:10px;margin-right:4px;">${ph}</span>`).join('')}</div>
+        </div>
+      </div>
+      <div class="pkg-stages">
+        <span class="pkg-stage ifa ${s.ifa==='done'?'done':s.ifa==='active'?'ifa':'pending'}">IFA ${s.ifa==='done'?'✓':s.ifa==='active'?'⟳':'—'}</span>
+        <span class="pkg-stage bfa ${s.bfa==='done'?'done':s.bfa==='active'?'bfa':'pending'}">BFA ${s.bfa==='done'?'✓':s.bfa==='active'?'⟳':'—'}</span>
+        <span class="pkg-stage rnr ${s.rnr==='done'?'done':s.rnr==='active'?'rnr':'pending'}">R&R ${s.rnr==='done'?'✓':s.rnr==='active'?'⟳':'—'}</span>
+        <span class="pkg-stage ifc ${s.ifc==='done'?'done':s.ifc==='active'?'ifc':'pending'}">IFC ${s.ifc==='done'?'✓':s.ifc==='active'?'⟳':'—'}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
 // ========== INIT ==========
-window.onload = function() {
+window.onload = async function() {
+  showLoadingOverlay(true);
+  try {
+    await loadData();
+  } catch(e) {
+    console.error('DB load failed:', e);
+    showToast('⚠️ Could not connect to database — running offline.', '#e63946');
+  }
+  showLoadingOverlay(false);
+  // Seed demo projects if DB is fresh
+  if (DB_ONLINE) await seedDemoData();
+
   renderCoreTeam();
   renderTasks();
   renderTeamInventory();
@@ -1158,10 +1593,43 @@ window.onload = function() {
   renderPackages();
   renderRFI();
   renderWeightage();
+  renderProjectList();
   startClock();
-  // Boot as TL
+  subscribeRealtime();
   switchRole('tl');
 };
+
+function showLoadingOverlay(show) {
+  let el = document.getElementById('loading-overlay');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'loading-overlay';
+    el.style.cssText = 'position:fixed;inset:0;background:rgba(255,255,255,0.92);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;';
+    el.innerHTML = '<div style="font-size:36px;">⏳</div><div style="font-size:15px;color:#1a3c5e;font-weight:600;">Connecting to database…</div><div style="font-size:12px;color:#6b7c93;">Loading project data from Supabase</div>';
+    document.body.appendChild(el);
+  }
+  el.style.display = show ? 'flex' : 'none';
+  if (!show) renderDbBadge();
+}
+
+function renderDbBadge() {
+  let badge = document.getElementById('db-badge');
+  if (!badge) {
+    badge = document.createElement('div');
+    badge.id = 'db-badge';
+    badge.style.cssText = 'display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 10px;border-radius:99px;cursor:default;';
+    document.querySelector('#topbar .breadcrumb').after(badge);
+  }
+  if (DB_ONLINE) {
+    badge.style.background = '#d1fae5'; badge.style.color = '#065f46';
+    badge.innerHTML = '🟢 DB Live';
+    badge.title = 'Connected to Supabase — changes are saved in real time';
+  } else {
+    badge.style.background = '#fef3c7'; badge.style.color = '#92400e';
+    badge.innerHTML = '🟡 Offline';
+    badge.title = 'Not connected to database — changes are in-memory only';
+  }
+}
 
 function startClock() {
   setInterval(() => {
@@ -1180,6 +1648,7 @@ const SCREEN_LABELS = {
   'project-list':   'All Projects',
   'task-assign':    'Tasks & Phases',
   'weightage':      'Weightage',
+  'packages':       'Packages',
   'employee-board': 'My Board',
   'tl-board':       'TL Dashboard',
   'rfi':            'RFI Management',
@@ -1191,8 +1660,8 @@ const SCREEN_LABELS = {
 // Screens each role is allowed to visit
 const ROLE_ACCESS = {
   employee: ['employee-board'],
-  tl:       ['project-create','project-list','task-assign','weightage','employee-board','tl-board','rfi','psr','approvals'],
-  spm:      ['project-create','project-list','task-assign','weightage','tl-board','rfi','psr','approvals','analytics'],
+  tl:       ['project-create','project-list','task-assign','weightage','packages','employee-board','tl-board','rfi','psr','approvals'],
+  spm:      ['project-create','project-list','task-assign','weightage','packages','tl-board','rfi','psr','approvals','analytics'],
 };
 
 function showScreen(id) {
@@ -1213,6 +1682,20 @@ function showScreen(id) {
   if (nav) nav.classList.add('active');
 
   document.getElementById('breadcrumb').innerHTML = `<strong>${SCREEN_LABELS[id] || id}</strong>`;
+
+  // Screen-specific on-show hooks
+  if (id === 'packages') renderPackagesScreen();
+  if (id === 'project-list') renderProjectList();
+  if (id === 'employee-board') populateEmpProjectDropdown();
+  if (id === 'approvals') {
+    const isSPM = currentRole === 'spm';
+    const extCard = document.getElementById('card-ext-member-requests');
+    const subtitle = document.getElementById('approvals-subtitle');
+    if (extCard) extCard.style.display = isSPM ? 'block' : 'none';
+    if (subtitle) subtitle.textContent = isSPM
+      ? 'SPM view — approve external member requests and custom tasks'
+      : 'TL view — approve custom task requests from your team';
+  }
 }
 
 function switchTab(tabEl, containerId, targetId) {
@@ -1243,6 +1726,7 @@ const ROLE_PROFILES = {
       { section: 'Task Management' },
       { id: 'task-assign',    icon: '🗂️', label: 'Tasks & Phases' },
       { id: 'weightage',      icon: '⚖️', label: 'Weightage' },
+      { id: 'packages',       icon: '📦', label: 'Packages' },
       { section: 'Boards' },
       { id: 'employee-board', icon: '👤', label: 'My Board' },
       { id: 'tl-board',       icon: '📊', label: 'TL Board' },
@@ -1262,6 +1746,7 @@ const ROLE_PROFILES = {
       { section: 'Task Management' },
       { id: 'task-assign',    icon: '🗂️', label: 'Tasks & Phases' },
       { id: 'weightage',      icon: '⚖️', label: 'Weightage' },
+      { id: 'packages',       icon: '📦', label: 'Packages' },
       { section: 'Boards' },
       { id: 'tl-board',       icon: '📊', label: 'TL Board' },
       { section: 'Management' },
@@ -1402,8 +1887,23 @@ function addMember() {
   const color = colors[Math.floor(Math.random()*colors.length)];
   const initials = name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
   if (addMemberType === 'core') {
-    CORE_TEAM.push({id: Date.now(), name, role, grade, tasks:0, color, initials});
-    renderCoreTeam();
+    const newMember = { id: Date.now(), name, role, grade, tasks: 0, color, initials };
+    if (_creatingNewProject) {
+      // Buffer for new project — will be persisted after project INSERT
+      _newProjectTeam.push(newMember);
+      CORE_TEAM.push(newMember);
+      renderCoreTeam(); renderTeamInventory();
+    } else if (DB_ONLINE && PROJECT_ID) {
+      db.from('team_members').insert({ project_id: PROJECT_ID, name, role, grade, color, initials, team: 'Team A' })
+        .select().single().then(({ data }) => {
+          if (data) CORE_TEAM.push({ id: data.id, name, role, grade, tasks: 0, color, initials });
+          else CORE_TEAM.push(newMember);
+          renderCoreTeam(); renderTeamInventory();
+        });
+    } else {
+      CORE_TEAM.push(newMember);
+      renderCoreTeam(); renderTeamInventory();
+    }
   } else {
     const list = document.getElementById('ext-team-list');
     list.innerHTML += `<div class="member-card">
@@ -1422,7 +1922,7 @@ function renderTeamInventory() {
   el.innerHTML = '';
   CORE_TEAM.forEach(m => {
     const wl = m.tasks > 4 ? 'danger' : m.tasks > 2 ? 'warn' : 'success';
-    el.innerHTML += `<div class="member-card draggable" draggable="true" data-member-id="${m.id}" ondragstart="dragStart(event,${m.id})">
+    el.innerHTML += `<div class="member-card draggable" draggable="true" data-member-id="${m.id}" ondragstart="dragStart(event,'${m.id}')">
       <div class="av" style="background:${m.color}">${m.initials}</div>
       <div class="info">
         <div class="name">${m.name}</div>
@@ -1468,14 +1968,19 @@ function renderTasks() {
       const phaseColor = phase.startsWith('Phase') ? COLORS[['Phase I','Phase II','Phase III','Phase IV'].indexOf(phase)] : '#6b7c93';
       html += `<div style="margin-bottom:14px;">
         <div style="font-size:11px;font-weight:700;color:${phaseColor};margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">${phase}${PHASE_NAMES[phase]?' – '+PHASE_NAMES[phase]:''}</div>
-        <div class="droppable" id="drop-${cat}-${phase.replace(/ /g,'_')}" ondragover="dragOver(event)" ondrop="dropTask(event,'${cat}','${phase}')">`;
+        <div style="display:flex;flex-direction:column;gap:4px;">`;
       grouped[phase].forEach(t => {
-        const assignee = t.assignee ? CORE_TEAM.find(m=>m.id===t.assignee) : null;
-        html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:#fff;border-radius:6px;border:1px solid var(--border);margin-bottom:4px;">
+        const assignee = t.assignee ? CORE_TEAM.find(m=>String(m.id)===String(t.assignee)) : null;
+        const esc = (s) => s.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+        html += `<div class="droppable" style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:#fff;border-radius:6px;border:1.5px dashed var(--border);margin-bottom:2px;"
+          ondragover="dragOver(event)" ondragleave="this.classList.remove('drag-over')" ondrop="dropTaskSpecific(event,'${esc(cat)}','${esc(phase)}','${esc(t.name)}')">
           <span style="font-size:12px;font-weight:600;flex:1;">${t.name}</span>
           ${t.postIFA ? '<span class="chip chip-purple" style="font-size:9px;">Post-IFA</span>' : ''}
-          ${assignee ? `<div class="av" style="background:${assignee.color};width:24px;height:24px;font-size:10px;">${assignee.initials}</div><span style="font-size:11px;color:var(--muted);">${assignee.name.split(' ')[0]}</span><button class="btn btn-sm btn-danger" onclick="unassignTask('${cat}','${phase}','${t.name}')">✕</button>`
-          : '<span style="font-size:11px;color:var(--muted);font-style:italic;">Drag member here</span>'}
+          ${assignee
+            ? `<div class="av" style="background:${assignee.color};width:24px;height:24px;font-size:10px;">${assignee.initials}</div>
+               <span style="font-size:11px;color:var(--muted);">${assignee.name.split(' ')[0]}</span>
+               <button class="btn btn-sm btn-danger" onclick="unassignTask('${esc(cat)}','${esc(phase)}','${esc(t.name)}')">✕</button>`
+            : '<span style="font-size:11px;color:#a0b8cc;font-style:italic;">⟵ Drop member here to assign</span>'}
         </div>`;
       });
       html += `</div></div>`;
@@ -1501,17 +2006,59 @@ function dropTask(e, cat, phase) {
   e.preventDefault();
   e.currentTarget.classList.remove('drag-over');
   if (!draggedMemberId) return;
-  const member = CORE_TEAM.find(m => m.id === draggedMemberId);
+  const member = CORE_TEAM.find(m => String(m.id) === String(draggedMemberId));
   if (!member) return;
   const tasks = AUTO_TASKS[cat].filter(t => t.phase === phase);
   const unassigned = tasks.find(t => !t.assignee);
   if (unassigned) {
     unassigned.assignee = draggedMemberId;
     member.tasks++;
+    // Persist to DB: upsert task with assignee
+    if (DB_ONLINE && PROJECT_ID) {
+      db.from('tasks').upsert({
+        project_id: PROJECT_ID, name: unassigned.name,
+        phase_name: phase, role: cat,
+        assignee_id: typeof draggedMemberId === 'number' ? null : draggedMemberId,
+        status: 'to-model'
+      }, { onConflict: 'project_id,name,role' }).then(({ error }) => {
+        if (error) console.warn('Task upsert failed:', error.message);
+      });
+    }
     renderTasks();
     renderTeamInventory();
   }
 }
+function dropTaskSpecific(e, cat, phase, taskName) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  if (!draggedMemberId) return;
+  const member = CORE_TEAM.find(m => String(m.id) === String(draggedMemberId));
+  if (!member) return;
+  const task = AUTO_TASKS[cat].find(t => t.phase === phase && t.name === taskName);
+  if (!task) return;
+  if (task.assignee) {
+    // Unassign previous
+    const prev = CORE_TEAM.find(m => String(m.id) === String(task.assignee));
+    if (prev) prev.tasks = Math.max(0, prev.tasks - 1);
+  }
+  task.assignee = draggedMemberId;
+  member.tasks++;
+  if (DB_ONLINE && PROJECT_ID) {
+    db.from('tasks').upsert({
+      project_id: PROJECT_ID, name: task.name,
+      phase_name: phase, role: cat,
+      assignee_id: String(draggedMemberId),
+      status: 'to-model'
+    }, { onConflict: 'project_id,name,role' }).then(({ error }) => {
+      if (error) console.warn('Task upsert failed:', error.message);
+    });
+  }
+  draggedMemberId = null;
+  renderTasks();
+  renderTeamInventory();
+  showToast(`👤 ${member.name.split(' ')[0]} assigned to "${task.name}"`, '#059669');
+}
+
 function unassignTask(cat, phase, taskName) {
   const task = AUTO_TASKS[cat].find(t => t.phase === phase && t.name === taskName);
   if (task && task.assignee) {
@@ -1531,11 +2078,15 @@ function setEmpRole(role) {
   event.target.className = 'btn btn-sm btn-primary';
   renderEmpBoard(role);
 }
-// Tracks the task being dragged on the scrum board
+
 let scrumDragTitle = null;
 let scrumDragRole  = null;
 
 function renderEmpBoard(role) {
+  if (role === 'Modeler')       { renderModelerBoard();  return; }
+  if (role === 'Model Checker') { renderCheckerBoard();  return; }
+
+  // Generic board for Editor / Erection Checker
   const board = document.getElementById('emp-scrum-board');
   if (!board) return;
   const cols  = SCRUMB_BOARDS[role] || [];
@@ -1543,26 +2094,23 @@ function renderEmpBoard(role) {
   board.innerHTML = '';
 
   cols.forEach(col => {
-    const colTasks    = tasks.filter(t => t.status === col);
+    const colTasks     = tasks.filter(t => t.status === col);
     const isInProgress = col.toLowerCase().includes('progress');
 
-    // Column wrapper
     const colEl = document.createElement('div');
     colEl.className   = 'scrum-col';
     colEl.dataset.col = col;
 
-    // Column header
     const header = document.createElement('div');
     header.className = 'scrum-col-header';
     header.innerHTML = `<span>${col}</span><span class="count">${colTasks.length}</span>`;
     colEl.appendChild(header);
 
-    // Task cards
     colTasks.forEach(t => {
       const card = document.createElement('div');
-      card.className      = 'task-card';
-      card.draggable      = true;
-      card.dataset.title  = t.title;
+      card.className     = 'task-card';
+      card.draggable     = true;
+      card.dataset.title = t.title;
 
       card.innerHTML = `
         <div style="display:flex;align-items:flex-start;gap:4px;">
@@ -1571,33 +2119,26 @@ function renderEmpBoard(role) {
             <div class="tc-title">${t.title}</div>
             <div class="tc-meta">
               <span class="chip chip-blue" style="font-size:9px;">${t.phase}</span>
-              ${t.timer  ? `<span class="tc-timer">⏱ ${t.timer}</span>`  : ''}
-              ${t.hours  ? `<span>${t.hours}h logged</span>`              : ''}
+              ${t.timer ? `<span class="tc-timer">⏱ ${t.timer}</span>` : ''}
+              ${t.hours ? `<span>${t.hours}h logged</span>` : ''}
             </div>
-            ${isInProgress && !t.timer
-              ? '<div style="margin-top:5px;font-size:10px;color:var(--muted);">Drop here to start timer</div>'
-              : ''}
+            ${isInProgress && !t.timer ? '<div style="margin-top:5px;font-size:10px;color:var(--muted);">Drop here to start timer</div>' : ''}
           </div>
         </div>`;
 
-      // ---- Drag events on the card ----
       card.addEventListener('dragstart', e => {
-        scrumDragTitle = t.title;
-        scrumDragRole  = role;
+        scrumDragTitle = t.title; scrumDragRole = role;
         card.classList.add('dragging');
         e.dataTransfer.effectAllowed = 'move';
-        // Give browser a moment to paint the ghost before opacity drops
         setTimeout(() => card.classList.add('dragging'), 0);
       });
       card.addEventListener('dragend', () => {
         card.classList.remove('dragging');
         document.querySelectorAll('.scrum-col').forEach(c => c.classList.remove('col-drag-over'));
       });
-
       colEl.appendChild(card);
     });
 
-    // Empty-column drop hint
     if (colTasks.length === 0) {
       const hint = document.createElement('div');
       hint.className = 'drop-hint';
@@ -1605,39 +2146,22 @@ function renderEmpBoard(role) {
       colEl.appendChild(hint);
     }
 
-    // ---- Drag events on the column ----
-    colEl.addEventListener('dragover', e => {
-      e.preventDefault();
-      e.dataTransfer.dropEffect = 'move';
-      colEl.classList.add('col-drag-over');
-    });
-    colEl.addEventListener('dragleave', e => {
-      // Only remove highlight when leaving the column entirely (not a child)
-      if (!colEl.contains(e.relatedTarget)) {
-        colEl.classList.remove('col-drag-over');
-      }
-    });
+    colEl.addEventListener('dragover', e => { e.preventDefault(); colEl.classList.add('col-drag-over'); });
+    colEl.addEventListener('dragleave', e => { if (!colEl.contains(e.relatedTarget)) colEl.classList.remove('col-drag-over'); });
     colEl.addEventListener('drop', e => {
       e.preventDefault();
       colEl.classList.remove('col-drag-over');
       if (!scrumDragTitle || scrumDragRole !== role) return;
-
       const taskList = SAMPLE_TASKS[role];
-      const task     = taskList.find(t => t.title === scrumDragTitle);
-      if (!task || task.status === col) return;   // dropped on same column — no-op
-
-      // "In Progress" rule: only one task active at a time
+      const task = taskList.find(t => t.title === scrumDragTitle);
+      if (!task || task.status === col) return;
       if (col.toLowerCase().includes('progress')) {
         const alreadyActive = taskList.find(t => t.status !== task.status && t.timer && t.title !== task.title);
-        if (alreadyActive) {
-          showToast('⚠️ Only one task can be In Progress at a time.', '#e63946');
-          return;
-        }
-        task.timer = '00:00:01';   // start timer
+        if (alreadyActive) { showToast('⚠️ Only one task can be In Progress at a time.', '#e63946'); return; }
+        task.timer = '00:00:01';
       } else {
-        task.timer = null;         // clear timer when moved out of In Progress
+        task.timer = null;
       }
-
       task.status = col;
       scrumDragTitle = null;
       renderEmpBoard(role);
@@ -1645,6 +2169,208 @@ function renderEmpBoard(role) {
 
     board.appendChild(colEl);
   });
+}
+
+// ========== MODELER BOARD (dependency-aware) ==========
+function renderModelerBoard() {
+  const board = document.getElementById('emp-scrum-board');
+  if (!board) return;
+  board.innerHTML = '';
+  const cols = ['To Model','Modeling in Progress','Model in Review','Model Checked – Changes in Progress','Model Done'];
+  // Valid drop-target columns derived from transitions
+  const dropTargetCols = new Set(Object.values(MODELER_TRANSITIONS).map(s => MODELER_COL[s]));
+
+  cols.forEach(col => {
+    const colTasks = MODELING_TASKS.filter(t => MODELER_COL[t.status] === col);
+    const colEl = document.createElement('div');
+    colEl.className = 'scrum-col';
+    colEl.dataset.col = col;
+    colEl.innerHTML = `<div class="scrum-col-header"><span>${col}</span><span class="count">${colTasks.length}</span></div>`;
+
+    colTasks.forEach(t => {
+      const canDrag      = !!MODELER_TRANSITIONS[t.status];
+      const isCheckerWip = t.status === 'checker-wip';
+      const isDoneGreen  = t.status === 'done';
+
+      const card = document.createElement('div');
+      card.className = 'task-card' +
+        (isDoneGreen  ? ' task-done-green' : '') +
+        (isCheckerWip ? ' task-grayed'     : '');
+      if (canDrag) { card.draggable = true; card.dataset.title = t.title; }
+
+      card.innerHTML = `
+        <div style="display:flex;align-items:flex-start;gap:4px;">
+          ${canDrag ? '<span class="drag-handle" title="Drag to move">⠿</span>' : ''}
+          <div style="flex:1;">
+            <div class="tc-title">${t.title}</div>
+            <div class="tc-meta">
+              <span class="chip chip-blue" style="font-size:9px;">${t.phase}</span>
+              ${t.timer ? `<span class="tc-timer">⏱ ${t.timer}</span>` : ''}
+              ${t.hours ? `<span>${t.hours}h logged</span>` : ''}
+              ${isCheckerWip ? '<span style="font-size:10px;color:var(--muted);font-style:italic;">⏳ Checker reviewing</span>' : ''}
+              ${isDoneGreen  ? '<span style="font-size:10px;color:#059669;font-weight:600;">✓ Approved</span>' : ''}
+              ${t.status==='changes-needed' ? '<span style="font-size:10px;color:#e63946;font-weight:600;">↩ Changes requested</span>' : ''}
+            </div>
+          </div>
+        </div>`;
+
+      if (canDrag) {
+        card.addEventListener('dragstart', e => {
+          scrumDragTitle = t.title; scrumDragRole = 'Modeler';
+          e.dataTransfer.effectAllowed = 'move';
+          setTimeout(() => card.classList.add('dragging'), 0);
+        });
+        card.addEventListener('dragend', () => {
+          card.classList.remove('dragging');
+          document.querySelectorAll('.scrum-col').forEach(c => c.classList.remove('col-drag-over'));
+        });
+      }
+      colEl.appendChild(card);
+    });
+
+    if (colTasks.length === 0) {
+      const hint = document.createElement('div');
+      hint.className = 'drop-hint';
+      hint.textContent = dropTargetCols.has(col) ? 'Drop task here' : '—';
+      colEl.appendChild(hint);
+    }
+
+    if (dropTargetCols.has(col)) {
+      colEl.addEventListener('dragover', e => { e.preventDefault(); colEl.classList.add('col-drag-over'); });
+      colEl.addEventListener('dragleave', e => { if (!colEl.contains(e.relatedTarget)) colEl.classList.remove('col-drag-over'); });
+      colEl.addEventListener('drop', e => {
+        e.preventDefault();
+        colEl.classList.remove('col-drag-over');
+        if (!scrumDragTitle || scrumDragRole !== 'Modeler') return;
+        const task = MODELING_TASKS.find(t => t.title === scrumDragTitle);
+        if (!task) return;
+        const nextStatus = MODELER_TRANSITIONS[task.status];
+        if (!nextStatus || MODELER_COL[nextStatus] !== col) return;
+
+        if (col === 'Modeling in Progress') {
+          const alreadyActive = MODELING_TASKS.find(t => t.status === 'modeling' && t.title !== task.title);
+          if (alreadyActive) { showToast('⚠️ Only one task can be In Progress at a time.', '#e63946'); return; }
+          task.timer = '00:00:01';
+        } else {
+          task.timer = null;
+        }
+
+        task.status = nextStatus;
+        persistTaskStatus(task.title, nextStatus);
+        if (col === 'Modeling in Progress') persistTimerStart(task.title);
+        scrumDragTitle = null;
+        renderModelerBoard();
+        if (nextStatus === 'in-review')    showToast('📋 Task sent to Model Checker for review.', '#2d7dd2');
+        if (nextStatus === 'resubmitted')  showToast('🔄 Changes resubmitted for checker review.', '#f4a261');
+      });
+    }
+
+    board.appendChild(colEl);
+  });
+}
+
+// ========== MODEL CHECKER BOARD (dependency-aware) ==========
+function renderCheckerBoard() {
+  const board = document.getElementById('emp-scrum-board');
+  if (!board) return;
+  board.innerHTML = '';
+  const cols = ['To Check','Checking in Progress','Model Checked – Changes in Progress','Changes in Review','Model Done'];
+
+  cols.forEach(col => {
+    const colTasks = MODELING_TASKS.filter(t => CHECKER_COL[t.status] === col);
+    const colEl = document.createElement('div');
+    colEl.className = 'scrum-col';
+    colEl.dataset.col = col;
+    colEl.innerHTML = `<div class="scrum-col-header"><span>${col}</span><span class="count">${colTasks.length}</span></div>`;
+
+    colTasks.forEach(t => {
+      const canDrag         = !!CHECKER_DRAG_TRANSITIONS[t.status];
+      const isDone          = t.status === 'done';
+      const showActions     = t.status === 'checker-active' || t.status === 'resubmitted';
+
+      const card = document.createElement('div');
+      card.className = 'task-card' + (isDone ? ' task-done-green' : '');
+      if (canDrag) { card.draggable = true; card.dataset.title = t.title; }
+
+      card.innerHTML = `
+        <div style="display:flex;align-items:flex-start;gap:4px;">
+          ${canDrag ? '<span class="drag-handle" title="Drag to start review">⠿</span>' : ''}
+          <div style="flex:1;">
+            <div class="tc-title">${t.title}</div>
+            <div class="tc-meta">
+              <span class="chip chip-blue" style="font-size:9px;">${t.phase}</span>
+              ${t.hours ? `<span>${t.hours}h logged</span>` : ''}
+              ${isDone ? '<span style="font-size:10px;color:#059669;font-weight:600;">✓ Approved</span>' : ''}
+              ${t.status==='resubmitted' ? '<span style="font-size:10px;color:#f4a261;font-weight:600;">↩ Changes applied</span>' : ''}
+            </div>
+            ${showActions ? `<div class="dep-actions">
+              <button class="btn btn-sm btn-success" onclick="checkerMarkDone('${t.title}')">✓ No Changes</button>
+              <button class="btn btn-sm btn-warn"    onclick="checkerSendBack('${t.title}')">↩ Request Changes</button>
+            </div>` : ''}
+          </div>
+        </div>`;
+
+      if (canDrag) {
+        card.addEventListener('dragstart', e => {
+          scrumDragTitle = t.title; scrumDragRole = 'Model Checker';
+          e.dataTransfer.effectAllowed = 'move';
+          setTimeout(() => card.classList.add('dragging'), 0);
+        });
+        card.addEventListener('dragend', () => {
+          card.classList.remove('dragging');
+          document.querySelectorAll('.scrum-col').forEach(c => c.classList.remove('col-drag-over'));
+        });
+      }
+      colEl.appendChild(card);
+    });
+
+    if (colTasks.length === 0) {
+      const hint = document.createElement('div');
+      hint.className = 'drop-hint';
+      hint.textContent = col === 'Checking in Progress' ? 'Drag task here to start review' : '—';
+      colEl.appendChild(hint);
+    }
+
+    // Checker drags into "Checking in Progress" (from To Check or Changes in Review)
+    if (col === 'Checking in Progress') {
+      colEl.addEventListener('dragover', e => { e.preventDefault(); colEl.classList.add('col-drag-over'); });
+      colEl.addEventListener('dragleave', e => { if (!colEl.contains(e.relatedTarget)) colEl.classList.remove('col-drag-over'); });
+      colEl.addEventListener('drop', e => {
+        e.preventDefault();
+        colEl.classList.remove('col-drag-over');
+        if (!scrumDragTitle || scrumDragRole !== 'Model Checker') return;
+        const task = MODELING_TASKS.find(t => t.title === scrumDragTitle);
+        if (!task) return;
+        const nextStatus = CHECKER_DRAG_TRANSITIONS[task.status];
+        if (!nextStatus) return;
+        task.status = nextStatus;
+        persistTaskStatus(task.title, nextStatus);
+        scrumDragTitle = null;
+        renderCheckerBoard();
+        showToast('🔍 Task taken for review.', '#2ec4b6');
+      });
+    }
+
+    board.appendChild(colEl);
+  });
+}
+
+function checkerMarkDone(title) {
+  const task = MODELING_TASKS.find(t => t.title === title);
+  if (!task) return;
+  task.status = 'done';
+  persistTaskStatus(title, 'done');
+  renderCheckerBoard();
+  showToast('✅ Task approved — No changes required. Modeler notified.', '#059669');
+}
+
+function checkerSendBack(title) {
+  const task = MODELING_TASKS.find(t => t.title === title);
+  if (!task) return;
+  task.status = 'changes-needed';
+  persistTaskStatus(title, 'changes-needed');
+  renderCheckerBoard();
+  showToast('↩ Changes requested — task sent back to Modeler.', '#f4a261');
 }
 
 // ========== TL BOARD ==========
@@ -1757,10 +2483,29 @@ function renderRFI() {
 }
 function closeRFI(id) {
   const idx = RFIS.findIndex(r => r.id === id);
-  if (idx !== -1) { RFIS.splice(idx, 1); renderRFI(); }
+  if (idx !== -1) {
+    const rfi = RFIS[idx];
+    if (rfi.dbId) db.from('rfis').delete().eq('id', rfi.dbId);
+    RFIS.splice(idx, 1);
+    renderRFI();
+  }
 }
 function openRFIModal() { document.getElementById('modal-rfi').classList.add('open'); }
-function addRFI() { closeModal('modal-rfi'); }
+async function addRFI() {
+  closeModal('modal-rfi');
+  if (!PROJECT_ID) return;
+  const num = document.querySelector('#modal-rfi input[placeholder="e.g. RFI-004"]')?.value;
+  const desc = document.querySelector('#modal-rfi textarea')?.value;
+  const phase = document.querySelector('#modal-rfi select:nth-of-type(1)')?.value;
+  const taskName = document.querySelector('#modal-rfi select:nth-of-type(2)')?.value;
+  if (!num) return;
+  await db.from('rfis').insert({
+    project_id: PROJECT_ID, rfi_number: num, description: desc,
+    phase, task_name: taskName, status: 'Open', date_sent: new Date().toISOString().split('T')[0]
+  });
+  // realtime subscription will update RFIS and call renderRFI()
+  showToast('📋 RFI logged successfully.', '#2d7dd2');
+}
 
 // ========== WEIGHTAGE ==========
 function renderWeightage() {
@@ -1816,10 +2561,86 @@ function rejectRequest(btn) {
 }
 
 // ========== PROJECT SAVE ==========
-function saveProject() {
+async function saveProject() {
   const name = document.getElementById('proj-name').value;
-  if (!name) { alert('Please enter a project name'); return; }
+  if (!name) { showToast('❌ Please enter a project name', '#e63946'); return; }
+
+  const payload = {
+    name,
+    client:          document.getElementById('proj-client')?.value || '',
+    code:            document.getElementById('proj-code')?.value   || '',
+    description:     document.getElementById('proj-desc')?.value   || '',
+    start_date:      document.getElementById('proj-start')?.value  || null,
+    ifa_date:        document.getElementById('proj-ifa')?.value     || null,
+    bfa_date:        document.getElementById('proj-bfa')?.value     || null,
+    ifc_date:        document.getElementById('proj-ifc')?.value     || null,
+    manhours_budget: parseInt(document.getElementById('proj-hours')?.value) || 2400,
+    status: 'In Progress',
+  };
+
+  if (!DB_ONLINE) {
+    showToast('⚠️ Offline — project saved in memory only.', '#f4a261');
+    showScreen('task-assign');
+    return;
+  }
+
+  if (_creatingNewProject) {
+    // INSERT new project
+    const { data: proj, error } = await db.from('projects').insert(payload).select().single();
+    if (error || !proj) { showToast('❌ Could not create project: ' + (error?.message||'unknown'), '#e63946'); return; }
+    PROJECT_ID = proj.id;
+    _creatingNewProject = false;
+
+    // Persist any team members added during creation
+    for (const m of _newProjectTeam) {
+      const { data: saved } = await db.from('team_members').insert({ project_id: PROJECT_ID, name: m.name, role: m.role, grade: m.grade, color: m.color, initials: m.initials, team: 'Team A' }).select().single();
+      if (saved) m.id = saved.id;
+    }
+    if (_newProjectTeam.length) { CORE_TEAM.length=0; _newProjectTeam.forEach(m=>CORE_TEAM.push(m)); }
+    _newProjectTeam = [];
+
+    // Reload project list
+    const { data: projects } = await db.from('projects').select('*').order('created_at');
+    ALL_PROJECTS = projects || [];
+
+    showToast('✅ Project created! Now assign tasks.', '#059669');
+  } else {
+    // UPDATE existing project
+    await db.from('projects').update(payload).eq('id', PROJECT_ID);
+    showToast('💾 Project updated.', '#059669');
+  }
   showScreen('task-assign');
+}
+
+async function finalizeProject() {
+  // Bypass package creation — just go to project list
+  showToast('✅ Project finalized!', '#059669');
+  renderProjectList();
+  showScreen('project-list');
+}
+
+let _creatingNewProject = false;
+let _newProjectTeam = [];
+
+function startNewProject() {
+  _creatingNewProject = true;
+  _newProjectTeam = [];
+  // Clear form fields
+  document.getElementById('proj-name').value = '';
+  document.getElementById('proj-client').value = '';
+  document.getElementById('proj-code').value = '';
+  document.getElementById('proj-desc').value = '';
+  document.getElementById('proj-start').value = '';
+  document.getElementById('proj-ifa').value = '';
+  document.getElementById('proj-bfa').value = '';
+  document.getElementById('proj-ifc').value = '';
+  document.getElementById('proj-hours').value = '2400';
+  // Clear team list display
+  const coreList = document.getElementById('core-team-list');
+  if (coreList) coreList.innerHTML = '';
+  const extList = document.getElementById('ext-team-list');
+  if (extList) extList.innerHTML = '';
+  showScreen('project-create');
 }
 
 // Close modals on overlay click
