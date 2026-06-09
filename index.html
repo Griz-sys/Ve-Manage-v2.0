@@ -1778,7 +1778,8 @@ function renderSidebar(role) {
       nav.innerHTML += `<div class="section-label">${item.section}</div>`;
     } else {
       const badge = item.badge ? '<span class="notif-dot" style="margin-left:auto;"></span>' : '';
-      nav.innerHTML += `<a onclick="showScreen('${item.id}')" id="nav-${item.id}">
+      const clickFn = item.id === 'project-create' ? 'startNewProject()' : `showScreen('${item.id}')`;
+      nav.innerHTML += `<a onclick="${clickFn}" id="nav-${item.id}">
         <span class="icon">${item.icon}</span><span>${item.label}</span>${badge}
       </a>`;
     }
@@ -2692,6 +2693,11 @@ async function saveProject() {
     if (_newProjectTeam.length) { CORE_TEAM.length=0; _newProjectTeam.forEach(m=>CORE_TEAM.push(m)); }
     _newProjectTeam = [];
 
+    // New project starts with ZERO tasks / progress
+    MODELING_TASKS.length = 0;
+    PACKAGES.length = 0;
+    RFIS.length = 0;
+
     // Reload project list
     const { data: projects } = await db.from('projects').select('*').order('created_at');
     ALL_PROJECTS = projects || [];
@@ -2718,7 +2724,19 @@ let _newProjectTeam = [];
 function startNewProject() {
   _creatingNewProject = true;
   _newProjectTeam = [];
-  // Clear form fields
+
+  // ── Reset all project state so nothing bleeds from the active project ──
+  // Clear in-memory tasks (new project starts from scratch — 0% progress)
+  MODELING_TASKS.length = 0;
+  PACKAGES.length = 0;
+  RFIS.length = 0;
+  CORE_TEAM.length = 0;
+  // Reset AUTO_TASKS assignees so task-assign screen starts clean
+  ['Modeling','Editing','Checking'].forEach(cat => {
+    (AUTO_TASKS[cat] || []).forEach(t => { t.assignees = []; t.completedBy = []; });
+  });
+
+  // ── Clear form fields ──
   document.getElementById('proj-name').value = '';
   document.getElementById('proj-client').value = '';
   document.getElementById('proj-code').value = '';
@@ -2728,12 +2746,21 @@ function startNewProject() {
   document.getElementById('proj-bfa').value = '';
   document.getElementById('proj-ifc').value = '';
   document.getElementById('proj-hours').value = '2400';
-  // Clear team list display
+
+  // ── Clear team list display ──
   const coreList = document.getElementById('core-team-list');
   if (coreList) coreList.innerHTML = '';
   const extList = document.getElementById('ext-team-list');
   if (extList) extList.innerHTML = '';
-  showScreen('project-create');
+
+  // Don't navigate through showScreen (it checks role access + triggers hooks)
+  // Instead directly activate the screen
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('#sidebar-nav a').forEach(a => a.classList.remove('active'));
+  document.getElementById('screen-project-create').classList.add('active');
+  const navEl = document.getElementById('nav-project-create');
+  if (navEl) navEl.classList.add('active');
+  document.getElementById('breadcrumb').innerHTML = '<strong>New Project</strong>';
 }
 
 // Close modals on overlay click
