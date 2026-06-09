@@ -1189,28 +1189,28 @@ const CORE_TEAM = [
 
 const AUTO_TASKS = {
   Modeling: [
-    ...(PHASES.flatMap(p => ['Wireframe','Anchor Bolt','Foundation Embeds','Embeds','Secondary Structural Steel','Connections'].map(t => ({name:t, phase:p, role:'Modeling', assignee:null})))),
-    {name:'Stairs', phase:'Stairs', role:'Modeling', assignee:null},
-    {name:'Arch Misc', phase:'Arch Misc', role:'Modeling', assignee:null},
+    ...(PHASES.flatMap(p => ['Wireframe','Anchor Bolt','Foundation Embeds','Embeds','Secondary Structural Steel','Connections'].map(t => ({name:t, phase:p, role:'Modeling', assignees:[]})))),
+    {name:'Stairs', phase:'Stairs', role:'Modeling', assignees:[]},
+    {name:'Arch Misc', phase:'Arch Misc', role:'Modeling', assignees:[]},
   ],
   Editing: [
-    ...(PHASES.flatMap(p => ['Plan Sheets','Detail Sheets','Elevation'].map(t => ({name:t, phase:p, role:'Editing', assignee:null})))),
-    {name:'Stairs', phase:'Stairs', role:'Editing', assignee:null},
-    {name:'Arch Misc', phase:'Arch Misc', role:'Editing', assignee:null},
-    {name:'Revision Changes', phase:'Post-IFA', role:'Editing', assignee:null, postIFA:true},
-    {name:'BFA Comment Implementation', phase:'Post-IFA', role:'Editing', assignee:null, postIFA:true},
-    ...(PHASES.map(p => ({name:`Phase Wise Steel – ${p}`, phase:p, role:'Shop Editing', assignee:null}))),
+    ...(PHASES.flatMap(p => ['Plan Sheets','Detail Sheets','Elevation'].map(t => ({name:t, phase:p, role:'Editing', assignees:[]})))),
+    {name:'Stairs', phase:'Stairs', role:'Editing', assignees:[]},
+    {name:'Arch Misc', phase:'Arch Misc', role:'Editing', assignees:[]},
+    {name:'Revision Changes', phase:'Post-IFA', role:'Editing', assignees:[], postIFA:true},
+    {name:'BFA Comment Implementation', phase:'Post-IFA', role:'Editing', assignees:[], postIFA:true},
+    ...(PHASES.map(p => ({name:`Phase Wise Steel – ${p}`, phase:p, role:'Shop Editing', assignees:[]}))),
   ],
   Checking: [
-    ...(PHASES.flatMap(p => ['Wireframe','Anchor Bolt','Foundation Embeds','Embeds','Secondary Structural Steel','Connections'].map(t => ({name:t, phase:p, role:'Model Checking', assignee:null})))),
-    {name:'Stairs', phase:'Stairs', role:'Model Checking', assignee:null},
-    {name:'Arch Misc', phase:'Arch Misc', role:'Model Checking', assignee:null},
-    {name:'BFA Changes Checking', phase:'Post-IFA', role:'Model Checking', assignee:null, postIFA:true},
-    {name:'Revision Changes Checking', phase:'Post-IFA', role:'Model Checking', assignee:null, postIFA:true},
-    ...(PHASES.flatMap(p => ['Plan Sheets','Detail Sheets','Elevation Sheets','Sheet Notes','Stairs','Arch Misc'].map(t => ({name:t, phase:p, role:'Erection Checking', assignee:null})))),
-    {name:'BFA Changes Checking', phase:'Post-IFA', role:'Erection Checking', assignee:null, postIFA:true},
-    {name:'Revision Changes Checking', phase:'Post-IFA', role:'Erection Checking', assignee:null, postIFA:true},
-    ...(PHASES.map(p => ({name:`Phase Wise Steel – ${p}`, phase:p, role:'Shop Checking', assignee:null}))),
+    ...(PHASES.flatMap(p => ['Wireframe','Anchor Bolt','Foundation Embeds','Embeds','Secondary Structural Steel','Connections'].map(t => ({name:t, phase:p, role:'Model Checking', assignees:[]})))),
+    {name:'Stairs', phase:'Stairs', role:'Model Checking', assignees:[]},
+    {name:'Arch Misc', phase:'Arch Misc', role:'Model Checking', assignees:[]},
+    {name:'BFA Changes Checking', phase:'Post-IFA', role:'Model Checking', assignees:[], postIFA:true},
+    {name:'Revision Changes Checking', phase:'Post-IFA', role:'Model Checking', assignees:[], postIFA:true},
+    ...(PHASES.flatMap(p => ['Plan Sheets','Detail Sheets','Elevation Sheets','Sheet Notes','Stairs','Arch Misc'].map(t => ({name:t, phase:p, role:'Erection Checking', assignees:[]})))),
+    {name:'BFA Changes Checking', phase:'Post-IFA', role:'Erection Checking', assignees:[], postIFA:true},
+    {name:'Revision Changes Checking', phase:'Post-IFA', role:'Erection Checking', assignees:[], postIFA:true},
+    ...(PHASES.map(p => ({name:`Phase Wise Steel – ${p}`, phase:p, role:'Shop Checking', assignees:[]}))),
   ]
 };
 
@@ -1940,6 +1940,11 @@ function renderTeamInventory() {
   });
 }
 
+function taskWeightage(count) {
+  if (!count) return 0;
+  return Math.round(100 / count);
+}
+
 function renderTasks() {
   const panel = document.getElementById('tasks-panel');
   if (!panel) return;
@@ -1954,8 +1959,8 @@ function renderTasks() {
     const tasks = AUTO_TASKS[cat] || [];
     const filtered = tasks.filter(t => {
       if (filterPhase && t.phase !== filterPhase) return false;
-      if (filterAssigned === 'assigned' && !t.assignee) return false;
-      if (filterAssigned === 'unassigned' && t.assignee) return false;
+      if (filterAssigned === 'assigned' && !t.assignees.length) return false;
+      if (filterAssigned === 'unassigned' && t.assignees.length) return false;
       return true;
     });
     if (filtered.length === 0) return;
@@ -1970,17 +1975,38 @@ function renderTasks() {
         <div style="font-size:11px;font-weight:700;color:${phaseColor};margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">${phase}${PHASE_NAMES[phase]?' – '+PHASE_NAMES[phase]:''}</div>
         <div style="display:flex;flex-direction:column;gap:4px;">`;
       grouped[phase].forEach(t => {
-        const assignee = t.assignee ? CORE_TEAM.find(m=>String(m.id)===String(t.assignee)) : null;
         const esc = (s) => s.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-        html += `<div class="droppable" style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:#fff;border-radius:6px;border:1.5px dashed var(--border);margin-bottom:2px;"
+        const assignedMembers = (t.assignees||[]).map(id => CORE_TEAM.find(m=>String(m.id)===String(id))).filter(Boolean);
+        const wPct = taskWeightage(assignedMembers.length);
+        const allDone = assignedMembers.length > 0 && (t.completedBy||[]).length >= assignedMembers.length;
+
+        html += `<div class="droppable" style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:${allDone?'#f0fdf4':'#fff'};border-radius:6px;border:1.5px dashed ${allDone?'#6ee7b7':'var(--border)'};margin-bottom:2px;"
           ondragover="dragOver(event)" ondragleave="this.classList.remove('drag-over')" ondrop="dropTaskSpecific(event,'${esc(cat)}','${esc(phase)}','${esc(t.name)}')">
-          <span style="font-size:12px;font-weight:600;flex:1;">${t.name}</span>
-          ${t.postIFA ? '<span class="chip chip-purple" style="font-size:9px;">Post-IFA</span>' : ''}
-          ${assignee
-            ? `<div class="av" style="background:${assignee.color};width:24px;height:24px;font-size:10px;">${assignee.initials}</div>
-               <span style="font-size:11px;color:var(--muted);">${assignee.name.split(' ')[0]}</span>
-               <button class="btn btn-sm btn-danger" onclick="unassignTask('${esc(cat)}','${esc(phase)}','${esc(t.name)}')">✕</button>`
-            : '<span style="font-size:11px;color:#a0b8cc;font-style:italic;">⟵ Drop member here to assign</span>'}
+          <div style="flex:1;">
+            <div style="font-size:12px;font-weight:600;">${t.name} ${allDone ? '<span style="color:#059669;font-size:10px;">✓ Complete</span>' : ''}</div>
+            ${t.postIFA ? '<span class="chip chip-purple" style="font-size:9px;">Post-IFA</span>' : ''}
+            ${assignedMembers.length ? `
+              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:5px;align-items:center;">
+                ${assignedMembers.map((m,i) => {
+                  const done = (t.completedBy||[]).includes(String(m.id));
+                  return `<div style="display:flex;align-items:center;gap:4px;background:${done?'#d1fae5':'#f0f4f8'};border-radius:99px;padding:2px 8px 2px 3px;">
+                    <div class="av" style="background:${m.color};width:20px;height:20px;font-size:9px;">${m.initials}</div>
+                    <span style="font-size:10px;font-weight:600;color:${done?'#059669':'var(--text)'};">${m.name.split(' ')[0]}</span>
+                    <span style="font-size:9px;color:var(--muted);">${wPct}%</span>
+                    ${done ? '<span style="font-size:9px;color:#059669;">✓</span>' : ''}
+                    <button class="btn btn-sm btn-danger" style="padding:1px 5px;font-size:9px;min-width:0;" onclick="unassignMember('${esc(cat)}','${esc(phase)}','${esc(t.name)}','${m.id}')">✕</button>
+                  </div>`;
+                }).join('')}
+                <span style="font-size:10px;color:#a0b8cc;font-style:italic;">+ drop to add more</span>
+              </div>
+              <div style="margin-top:4px;">
+                <div class="progress-bar" style="height:4px;">
+                  <div class="fill success" style="width:${Math.round(((t.completedBy||[]).length/assignedMembers.length)*100)}%;"></div>
+                </div>
+                <span style="font-size:9px;color:var(--muted);">${(t.completedBy||[]).length}/${assignedMembers.length} completed · ${wPct}% each</span>
+              </div>` :
+              '<div style="font-size:11px;color:#a0b8cc;font-style:italic;margin-top:2px;">⟵ Drop member here to assign</div>'}
+          </div>
         </div>`;
       });
       html += `</div></div>`;
@@ -2036,38 +2062,66 @@ function dropTaskSpecific(e, cat, phase, taskName) {
   if (!member) return;
   const task = AUTO_TASKS[cat].find(t => t.phase === phase && t.name === taskName);
   if (!task) return;
-  if (task.assignee) {
-    // Unassign previous
-    const prev = CORE_TEAM.find(m => String(m.id) === String(task.assignee));
-    if (prev) prev.tasks = Math.max(0, prev.tasks - 1);
+  if (!task.assignees) task.assignees = [];
+  // Prevent duplicate assignment
+  if (task.assignees.some(id => String(id) === String(draggedMemberId))) {
+    showToast(`⚠️ ${member.name.split(' ')[0]} is already assigned to this task.`, '#f4a261');
+    draggedMemberId = null; return;
   }
-  task.assignee = draggedMemberId;
+  // Max 4 members per task
+  if (task.assignees.length >= 4) {
+    showToast('⚠️ Max 4 members per task.', '#f4a261');
+    draggedMemberId = null; return;
+  }
+  task.assignees.push(String(draggedMemberId));
   member.tasks++;
-  if (DB_ONLINE && PROJECT_ID) {
-    db.from('tasks').upsert({
-      project_id: PROJECT_ID, name: task.name,
-      phase_name: phase, role: cat,
-      assignee_id: String(draggedMemberId),
-      status: 'to-model'
-    }, { onConflict: 'project_id,name,role' }).then(({ error }) => {
-      if (error) console.warn('Task upsert failed:', error.message);
-    });
-  }
   draggedMemberId = null;
   renderTasks();
   renderTeamInventory();
-  showToast(`👤 ${member.name.split(' ')[0]} assigned to "${task.name}"`, '#059669');
+  const count = task.assignees.length;
+  const wPct = taskWeightage(count);
+  showToast(`👤 ${member.name.split(' ')[0]} added to "${task.name}" · ${wPct}% each (${count} member${count>1?'s':''})`, '#059669');
+}
+
+function unassignMember(cat, phase, taskName, memberId) {
+  const task = AUTO_TASKS[cat].find(t => t.phase === phase && t.name === taskName);
+  if (!task) return;
+  const idx = task.assignees.findIndex(id => String(id) === String(memberId));
+  if (idx !== -1) {
+    task.assignees.splice(idx, 1);
+    if (task.completedBy) task.completedBy = task.completedBy.filter(id => String(id) !== String(memberId));
+    const m = CORE_TEAM.find(m => String(m.id) === String(memberId));
+    if (m) m.tasks = Math.max(0, m.tasks - 1);
+    renderTasks(); renderTeamInventory();
+  }
 }
 
 function unassignTask(cat, phase, taskName) {
   const task = AUTO_TASKS[cat].find(t => t.phase === phase && t.name === taskName);
-  if (task && task.assignee) {
-    const m = CORE_TEAM.find(m => m.id === task.assignee);
-    if (m) m.tasks = Math.max(0, m.tasks-1);
-    task.assignee = null;
-    renderTasks();
-    renderTeamInventory();
+  if (!task) return;
+  (task.assignees||[]).forEach(id => {
+    const m = CORE_TEAM.find(m => String(m.id) === String(id));
+    if (m) m.tasks = Math.max(0, m.tasks - 1);
+  });
+  task.assignees = [];
+  task.completedBy = [];
+  renderTasks(); renderTeamInventory();
+}
+
+// Called from employee board — member marks their own portion done
+function memberCompleteTask(cat, phase, taskName, memberId) {
+  const task = AUTO_TASKS[cat].find(t => t.phase === phase && t.name === taskName);
+  if (!task) return;
+  if (!task.completedBy) task.completedBy = [];
+  if (!task.completedBy.includes(String(memberId))) task.completedBy.push(String(memberId));
+  const total = (task.assignees||[]).length;
+  const done  = task.completedBy.length;
+  if (done >= total && total > 0) {
+    showToast(`✅ "${task.name}" fully complete — all ${total} member${total>1?'s':''} done!`, '#059669');
+  } else {
+    showToast(`✓ Your portion marked done (${done}/${total} complete)`, '#2d7dd2');
   }
+  renderTasks();
 }
 
 // ========== EMPLOYEE BOARD ==========
@@ -2509,25 +2563,64 @@ async function addRFI() {
 
 // ========== WEIGHTAGE ==========
 function renderWeightage() {
-  const tasks1 = ['Wireframe','Anchor Bolt','Foundation Embeds','Embeds','Secondary Structural Steel','Connections','Plan Sheets','Detail Sheets','Wireframe Check','Anchor Bolt Check'];
-  const tasks2 = ['Wireframe','Anchor Bolt','Secondary Structural Steel','Connections','Plan Sheets','Detail Sheets','Elevation'];
-  const hrs1 = [42,36,28,32,48,55,28,24,18,15];
-  const hrs2 = [38,30,44,52,22,20,18];
-
-  function buildList(elId, tasks, hrs) {
+  // Build from AUTO_TASKS — Phase I and Phase II Modeling tasks that have assignees
+  function buildListFromTasks(elId, phase) {
     const el = document.getElementById(elId);
     if (!el) return;
-    el.innerHTML = tasks.map((t,i) => `
-      <div class="weightage-row">
-        <div class="task-name">${t}</div>
-        <div class="assignee">${CORE_TEAM[i % CORE_TEAM.length].name.split(' ')[0]}</div>
-        <input type="number" value="${hrs[i]}" min="0" max="500" onchange="updateTotal()" style="width:70px;">
-        <span style="font-size:11px;color:var(--muted);">hrs</span>
-        <div class="progress-bar" style="width:100px;"><div class="fill" style="width:${Math.min(hrs[i]/80*100,100)}%;"></div></div>
-      </div>`).join('');
+    const tasks = AUTO_TASKS.Modeling.filter(t => t.phase === phase);
+    if (!tasks.length) { el.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:10px 0;">No tasks for this phase yet.</div>'; return; }
+    el.innerHTML = tasks.map((t, i) => {
+      const hrs = [42,36,28,32,48,55][i] || 20;
+      const assignedMembers = (t.assignees||[]).map(id => CORE_TEAM.find(m=>String(m.id)===String(id))).filter(Boolean);
+      const wPct = taskWeightage(assignedMembers.length);
+      const allDone = assignedMembers.length > 0 && (t.completedBy||[]).length >= assignedMembers.length;
+      const memberHtml = assignedMembers.length
+        ? assignedMembers.map(m => {
+            const mHrs = Math.round(hrs * wPct / 100);
+            const done = (t.completedBy||[]).includes(String(m.id));
+            return `<span style="display:inline-flex;align-items:center;gap:3px;background:${done?'#d1fae5':'#e8f0fe'};border-radius:99px;padding:1px 7px 1px 3px;font-size:10px;">
+              <div class="av" style="background:${m.color};width:16px;height:16px;font-size:8px;">${m.initials}</div>
+              ${m.name.split(' ')[0]} <span style="color:var(--muted);">(${wPct}% · ${mHrs}h)</span> ${done?'✓':''}
+            </span>`;
+          }).join('')
+        : `<span style="font-size:11px;color:var(--muted);font-style:italic;">Unassigned</span>`;
+      return `<div class="weightage-row" style="${allDone?'background:#f0fdf4;border-radius:6px;padding-left:8px;':''}">
+        <div class="task-name" style="display:flex;flex-direction:column;gap:3px;">
+          <span>${t.name} ${allDone?'<span style="color:#059669;font-size:10px;">✓ Done</span>':''}</span>
+          <div style="display:flex;gap:4px;flex-wrap:wrap;">${memberHtml}</div>
+        </div>
+        <input type="number" value="${hrs}" min="0" max="500" onchange="updateTotal()" style="width:70px;">
+        <span style="font-size:11px;color:var(--muted);">hrs total</span>
+        <div class="progress-bar" style="width:80px;"><div class="fill ${allDone?'success':''}" style="width:${allDone?100:Math.min(hrs/80*100,100)}%;"></div></div>
+      </div>`;
+    }).join('');
   }
-  buildList('weightage-list-1', tasks1, hrs1);
-  buildList('weightage-list-2', tasks2, hrs2);
+
+  // Fallback static list if no assignments yet
+  const hasAssignments = AUTO_TASKS.Modeling.some(t => t.assignees && t.assignees.length);
+  if (hasAssignments) {
+    buildListFromTasks('weightage-list-1', 'Phase I');
+    buildListFromTasks('weightage-list-2', 'Phase II');
+  } else {
+    const tasks1 = ['Wireframe','Anchor Bolt','Foundation Embeds','Embeds','Secondary Structural Steel','Connections','Plan Sheets','Detail Sheets','Wireframe Check','Anchor Bolt Check'];
+    const tasks2 = ['Wireframe','Anchor Bolt','Secondary Structural Steel','Connections','Plan Sheets','Detail Sheets','Elevation'];
+    const hrs1 = [42,36,28,32,48,55,28,24,18,15];
+    const hrs2 = [38,30,44,52,22,20,18];
+    const buildStatic = (elId, tasks, hrs) => {
+      const el = document.getElementById(elId);
+      if (!el) return;
+      el.innerHTML = tasks.map((t,i) => `
+        <div class="weightage-row">
+          <div class="task-name">${t}</div>
+          <div class="assignee" style="font-size:11px;color:var(--muted);font-style:italic;">Assign in Tasks tab first</div>
+          <input type="number" value="${hrs[i]}" min="0" max="500" onchange="updateTotal()" style="width:70px;">
+          <span style="font-size:11px;color:var(--muted);">hrs</span>
+          <div class="progress-bar" style="width:100px;"><div class="fill" style="width:${Math.min(hrs[i]/80*100,100)}%;"></div></div>
+        </div>`).join('');
+    };
+    buildStatic('weightage-list-1', tasks1, hrs1);
+    buildStatic('weightage-list-2', tasks2, hrs2);
+  }
   updateTotal();
 }
 
