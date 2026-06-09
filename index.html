@@ -903,6 +903,22 @@
       </div>
     </div>
 
+    <!-- ==================== SCREEN: MY TEAM ==================== -->
+    <div id="screen-my-team" class="screen">
+      <div class="page-header">
+        <div>
+          <h1>My Team</h1>
+          <p>Your global team roster — preloaded into every new project you create</p>
+        </div>
+        <button class="btn btn-primary" onclick="openAddMemberModal('global')">+ Add Member</button>
+      </div>
+      <div class="card">
+        <div class="card-title">👥 Global Team Roster</div>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:14px;">These members are automatically added when you create a new project. You can remove them from individual projects on the project creation screen.</p>
+        <div class="team-list" id="global-team-list"></div>
+      </div>
+    </div>
+
   </div><!-- /content -->
 </div><!-- /main -->
 
@@ -1186,6 +1202,8 @@ const CORE_TEAM = [
   { id:5, name:'Rahul Nair', role:'Model Checker', grade:'G3', tasks:2, color:'#f4a261', initials:'RN' },
   { id:6, name:'Kavya Singh', role:'Shop Checker', grade:'G2', tasks:1, color:'#0891b2', initials:'KS' },
 ];
+
+let GLOBAL_TEAM = [...CORE_TEAM];
 
 const AUTO_TASKS = {
   Modeling: [
@@ -1655,12 +1673,13 @@ const SCREEN_LABELS = {
   'psr':            'PSR',
   'analytics':      'Analytics',
   'approvals':      'Approvals',
+  'my-team':        'My Team',
 };
 
 // Screens each role is allowed to visit
 const ROLE_ACCESS = {
   employee: ['employee-board'],
-  tl:       ['project-create','project-list','task-assign','weightage','packages','employee-board','tl-board','rfi','psr','approvals'],
+  tl:       ['project-create','project-list','task-assign','weightage','packages','employee-board','tl-board','rfi','psr','approvals','my-team'],
   spm:      ['project-create','project-list','task-assign','weightage','packages','tl-board','rfi','psr','approvals','analytics'],
 };
 
@@ -1687,6 +1706,7 @@ function showScreen(id) {
   if (id === 'packages') renderPackagesScreen();
   if (id === 'project-list') renderProjectList();
   if (id === 'employee-board') populateEmpProjectDropdown();
+  if (id === 'my-team') renderGlobalTeam();
   if (id === 'approvals') {
     const isSPM = currentRole === 'spm';
     const extCard = document.getElementById('card-ext-member-requests');
@@ -1723,6 +1743,8 @@ const ROLE_PROFILES = {
       { section: 'Projects' },
       { id: 'project-create', icon: '➕', label: 'New Project' },
       { id: 'project-list',   icon: '📁', label: 'All Projects' },
+      { section: 'Team' },
+      { id: 'my-team',        icon: '👥', label: 'My Team' },
       { section: 'Task Management' },
       { id: 'task-assign',    icon: '🗂️', label: 'Tasks & Phases' },
       { id: 'weightage',      icon: '⚖️', label: 'Weightage' },
@@ -1850,6 +1872,7 @@ function renderCoreTeam() {
   el.innerHTML = '';
   CORE_TEAM.forEach(m => {
     const roleChip = roleChipHtml(m.role);
+    const removeBtn = _creatingNewProject ? `<button class="btn btn-sm btn-danger" style="margin-left:4px;" onclick="removeFromProject(${m.id})">Remove</button>` : '';
     el.innerHTML += `<div class="member-card">
       <div class="av" style="background:${m.color}">${m.initials}</div>
       <div class="info">
@@ -1857,6 +1880,7 @@ function renderCoreTeam() {
         <div class="sub">${m.role} · ${m.grade}</div>
       </div>
       ${roleChip}
+      ${removeBtn}
       <div class="tooltip">
         <strong>${m.name}</strong><br>
         Grade: ${m.grade}<br>
@@ -1866,6 +1890,48 @@ function renderCoreTeam() {
       </div>
     </div>`;
   });
+}
+
+function renderGlobalTeam() {
+  const el = document.getElementById('global-team-list');
+  if (!el) return;
+  if (!GLOBAL_TEAM.length) {
+    el.innerHTML = '<p style="color:var(--muted);font-size:12px;">No team members yet. Click "+ Add Member" to build your team.</p>';
+    return;
+  }
+  el.innerHTML = GLOBAL_TEAM.map(m => `
+    <div class="member-card" style="position:relative;">
+      <div class="av" style="background:${m.color}">${m.initials}</div>
+      <div class="info">
+        <div class="name">${m.name}</div>
+        <div class="sub">${m.role} · ${m.grade}</div>
+      </div>
+      ${roleChipHtml(m.role)}
+      <button class="btn btn-sm btn-danger" style="margin-left:auto;" onclick="removeFromGlobalTeam('${m.id}')">Remove</button>
+    </div>`).join('');
+}
+
+function removeFromGlobalTeam(id) {
+  const idx = GLOBAL_TEAM.findIndex(m => String(m.id) === String(id));
+  if (idx !== -1) {
+    GLOBAL_TEAM.splice(idx, 1);
+    renderGlobalTeam();
+    showToast('Removed from global team roster.', '#e63946');
+  }
+}
+
+function removeFromProject(memberId) {
+  const idx = CORE_TEAM.findIndex(m => String(m.id) === String(memberId));
+  if (idx !== -1) {
+    CORE_TEAM.splice(idx, 1);
+    if (_creatingNewProject) {
+      const ni = _newProjectTeam.findIndex(m => String(m.id) === String(memberId));
+      if (ni !== -1) _newProjectTeam.splice(ni, 1);
+    }
+    renderCoreTeam();
+    renderTeamInventory();
+    showToast('Member removed from this project.', '#e63946');
+  }
 }
 
 function roleChipHtml(role) {
@@ -1887,7 +1953,14 @@ function addMember() {
   const colors = ['#2d7dd2','#e63946','#2ec4b6','#f4a261','#a855f7'];
   const color = colors[Math.floor(Math.random()*colors.length)];
   const initials = name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
-  if (addMemberType === 'core') {
+  if (addMemberType === 'global') {
+    const newMember = { id: Date.now(), name, role, grade, tasks: 0, color, initials };
+    GLOBAL_TEAM.push(newMember);
+    renderGlobalTeam();
+    closeModal('modal-add-member');
+    showToast(`${name} added to global team roster.`, '#059669');
+    return;
+  } else if (addMemberType === 'core') {
     const newMember = { id: Date.now(), name, role, grade, tasks: 0, color, initials };
     if (_creatingNewProject) {
       // Buffer for new project — will be persisted after project INSERT
@@ -1981,8 +2054,7 @@ function renderTasks() {
         const wPct = taskWeightage(assignedMembers.length);
         const allDone = assignedMembers.length > 0 && (t.completedBy||[]).length >= assignedMembers.length;
 
-        html += `<div class="droppable" style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:${allDone?'#f0fdf4':'#fff'};border-radius:6px;border:1.5px dashed ${allDone?'#6ee7b7':'var(--border)'};margin-bottom:2px;"
-          ondragover="dragOver(event)" ondragleave="this.classList.remove('drag-over')" ondrop="dropTaskSpecific(event,'${esc(cat)}','${esc(phase)}','${esc(t.name)}')">
+        html += `<div class="droppable task-drop-zone" data-cat="${cat}" data-phase="${phase}" data-task="${t.name.replace(/"/g,'&quot;')}" ${allDone ? 'data-alldone="1"' : ''} style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:${allDone?'#f0fdf4':'#fff'};border-radius:6px;border:1.5px dashed ${allDone?'#6ee7b7':'var(--border)'};margin-bottom:2px;">
           <div style="flex:1;">
             <div style="font-size:12px;font-weight:600;">${t.name} ${allDone ? '<span style="color:#059669;font-size:10px;">✓ Complete</span>' : ''}</div>
             ${t.postIFA ? '<span class="chip chip-purple" style="font-size:9px;">Post-IFA</span>' : ''}
@@ -2015,6 +2087,26 @@ function renderTasks() {
     html += `</div>`;
   });
   panel.innerHTML = html || '<div class="card"><p style="color:var(--muted);text-align:center;padding:20px;">No tasks match the current filters.</p></div>';
+
+  // Attach drag-drop listeners after DOM is set
+  panel.querySelectorAll('.task-drop-zone').forEach(zone => {
+    zone.addEventListener('dragover', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      zone.style.borderColor = 'var(--accent)';
+      zone.style.background = '#e8f4ff';
+    });
+    zone.addEventListener('dragleave', e => {
+      zone.style.borderColor = 'var(--border)';
+      zone.style.background = zone.dataset.alldone === '1' ? '#f0fdf4' : '#fff';
+    });
+    zone.addEventListener('drop', e => {
+      e.preventDefault();
+      zone.style.borderColor = 'var(--border)';
+      zone.style.background = zone.dataset.alldone === '1' ? '#f0fdf4' : '#fff';
+      dropTaskSpecific(e, zone.dataset.cat, zone.dataset.phase, zone.dataset.task);
+    });
+  });
 }
 
 function filterTasks() { renderTasks(); }
@@ -2057,7 +2149,6 @@ function dropTask(e, cat, phase) {
 }
 function dropTaskSpecific(e, cat, phase, taskName) {
   e.preventDefault();
-  e.currentTarget.classList.remove('drag-over');
   if (!draggedMemberId) return;
   const member = CORE_TEAM.find(m => String(m.id) === String(draggedMemberId));
   if (!member) return;
@@ -2654,6 +2745,59 @@ function rejectRequest(btn) {
   btn.parentElement.innerHTML = '<span class="chip chip-red">✕ Rejected</span>';
 }
 
+// ========== PHASE HELPERS ==========
+function getFormPhases() {
+  const items = document.querySelectorAll('#phase-list .phase-item');
+  const phases = [];
+  items.forEach((item, i) => {
+    const nameInput = item.querySelector('.phase-name');
+    const descInput = item.querySelectorAll('input')[1];
+    phases.push({
+      id: `Phase ${['I','II','III','IV','V','VI','VII','VIII'][i] || (i+1)}`,
+      name: nameInput?.value || `Phase ${i+1}`,
+      desc: descInput?.value || ''
+    });
+  });
+  return phases;
+}
+
+function regenerateAutoTasks(phases) {
+  const phaseIds = phases.map(p => p.id);
+  AUTO_TASKS.Modeling = [
+    ...phaseIds.flatMap(p => ['Wireframe','Anchor Bolt','Foundation Embeds','Embeds','Secondary Structural Steel','Connections'].map(t => ({name:t, phase:p, role:'Modeling', assignees:[], completedBy:[]}))),
+    {name:'Stairs', phase:'Stairs', role:'Modeling', assignees:[], completedBy:[]},
+    {name:'Arch Misc', phase:'Arch Misc', role:'Modeling', assignees:[], completedBy:[]},
+  ];
+  AUTO_TASKS.Editing = [
+    ...phaseIds.flatMap(p => ['Plan Sheets','Detail Sheets','Elevation'].map(t => ({name:t, phase:p, role:'Editing', assignees:[], completedBy:[]}))),
+    {name:'Stairs', phase:'Stairs', role:'Editing', assignees:[], completedBy:[]},
+    {name:'Arch Misc', phase:'Arch Misc', role:'Editing', assignees:[], completedBy:[]},
+    {name:'Revision Changes', phase:'Post-IFA', role:'Editing', assignees:[], completedBy:[], postIFA:true},
+    {name:'BFA Comment Implementation', phase:'Post-IFA', role:'Editing', assignees:[], completedBy:[], postIFA:true},
+    ...phaseIds.map(p => ({name:`Phase Wise Steel – ${p}`, phase:p, role:'Shop Editing', assignees:[], completedBy:[]})),
+  ];
+  AUTO_TASKS.Checking = [
+    ...phaseIds.flatMap(p => ['Wireframe','Anchor Bolt','Foundation Embeds','Embeds','Secondary Structural Steel','Connections'].map(t => ({name:t, phase:p, role:'Model Checking', assignees:[], completedBy:[]}))),
+    {name:'Stairs', phase:'Stairs', role:'Model Checking', assignees:[], completedBy:[]},
+    {name:'Arch Misc', phase:'Arch Misc', role:'Model Checking', assignees:[], completedBy:[]},
+    {name:'BFA Changes Checking', phase:'Post-IFA', role:'Model Checking', assignees:[], completedBy:[], postIFA:true},
+    {name:'Revision Changes Checking', phase:'Post-IFA', role:'Model Checking', assignees:[], completedBy:[], postIFA:true},
+    ...phaseIds.flatMap(p => ['Plan Sheets','Detail Sheets','Elevation Sheets','Sheet Notes','Stairs','Arch Misc'].map(t => ({name:t, phase:p, role:'Erection Checking', assignees:[], completedBy:[]}))),
+    {name:'BFA Changes Checking', phase:'Post-IFA', role:'Erection Checking', assignees:[], completedBy:[], postIFA:true},
+    {name:'Revision Changes Checking', phase:'Post-IFA', role:'Erection Checking', assignees:[], completedBy:[], postIFA:true},
+    ...phaseIds.map(p => ({name:`Phase Wise Steel – ${p}`, phase:p, role:'Shop Checking', assignees:[], completedBy:[]})),
+  ];
+  // Update PHASE_NAMES lookup
+  phases.forEach(p => { PHASE_NAMES[p.id] = p.name; });
+  // Update filter dropdown
+  const sel = document.getElementById('filter-phase');
+  if (sel) {
+    sel.innerHTML = '<option value="">All Phases</option>' +
+      phases.map(p => `<option value="${p.id}">${p.id} – ${p.name}</option>`).join('') +
+      '<option value="Stairs">Stairs</option><option value="Arch Misc">Arch Misc</option><option value="Post-IFA">Post-IFA</option>';
+  }
+}
+
 // ========== PROJECT SAVE ==========
 async function saveProject() {
   const name = document.getElementById('proj-name').value;
@@ -2674,6 +2818,10 @@ async function saveProject() {
 
   if (!DB_ONLINE) {
     showToast('⚠️ Offline — project saved in memory only.', '#f4a261');
+    const formPhases = getFormPhases();
+    regenerateAutoTasks(formPhases);
+    renderTasks();
+    renderTeamInventory();
     showScreen('task-assign');
     return;
   }
@@ -2708,6 +2856,10 @@ async function saveProject() {
     await db.from('projects').update(payload).eq('id', PROJECT_ID);
     showToast('💾 Project updated.', '#059669');
   }
+  const formPhases = getFormPhases();
+  regenerateAutoTasks(formPhases);
+  renderTasks();
+  renderTeamInventory();
   showScreen('task-assign');
 }
 
@@ -2731,7 +2883,16 @@ function startNewProject() {
   PACKAGES.length = 0;
   RFIS.length = 0;
   CORE_TEAM.length = 0;
+  GLOBAL_TEAM.forEach(m => CORE_TEAM.push({...m, tasks:0}));
+  _newProjectTeam = [...CORE_TEAM];
+  renderCoreTeam();
   // Reset AUTO_TASKS assignees so task-assign screen starts clean
+  regenerateAutoTasks([
+    {id:'Phase I',   name:'Phase I'},
+    {id:'Phase II',  name:'Phase II'},
+    {id:'Phase III', name:'Phase III'},
+    {id:'Phase IV',  name:'Phase IV'},
+  ]);
   ['Modeling','Editing','Checking'].forEach(cat => {
     (AUTO_TASKS[cat] || []).forEach(t => { t.assignees = []; t.completedBy = []; });
   });
