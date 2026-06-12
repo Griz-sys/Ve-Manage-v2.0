@@ -1080,6 +1080,9 @@ async function loadData() {
   if (members && members.length) {
     CORE_TEAM.length = 0;
     members.forEach(m => CORE_TEAM.push({ id: m.id, name: m.name, role: m.role, grade: m.grade, tasks: 0, color: m.color, initials: m.initials }));
+    // Sync global team from DB members so new projects start pre-populated
+    GLOBAL_TEAM.length = 0;
+    CORE_TEAM.forEach(m => GLOBAL_TEAM.push({...m}));
   }
 
   // Modeling tasks
@@ -2885,7 +2888,6 @@ function startNewProject() {
   CORE_TEAM.length = 0;
   GLOBAL_TEAM.forEach(m => CORE_TEAM.push({...m, tasks:0}));
   _newProjectTeam = [...CORE_TEAM];
-  renderCoreTeam();
   // Reset AUTO_TASKS assignees so task-assign screen starts clean
   regenerateAutoTasks([
     {id:'Phase I',   name:'Phase I'},
@@ -2908,9 +2910,8 @@ function startNewProject() {
   document.getElementById('proj-ifc').value = '';
   document.getElementById('proj-hours').value = '2400';
 
-  // ── Clear team list display ──
-  const coreList = document.getElementById('core-team-list');
-  if (coreList) coreList.innerHTML = '';
+  // ── Render team from global roster ──
+  renderCoreTeam();
   const extList = document.getElementById('ext-team-list');
   if (extList) extList.innerHTML = '';
 
